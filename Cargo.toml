@@ -3,4 +3,20 @@ name = "yadaw"
 version = "0.1.0"
 edition = "2021"
 
+[profile.dev]
+panic = "abort"
+opt-level = 1
+
+[profile.release]
+panic = "abort"
+
+[workspace]
+members = [".", "libs/*"]
+resolver = "2"
+default-members = ["."]
+
+[workspace.dependencies]
+yadaw-ui = { path = "libs/yadaw-ui" }
+
 [dependencies]
+yadaw-ui.workspace = true
