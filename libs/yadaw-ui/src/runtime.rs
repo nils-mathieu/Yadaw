@@ -16,7 +16,7 @@ use {
     vello::Scene,
     winit::{
         application::ApplicationHandler,
-        event::WindowEvent,
+        event::{StartCause, WindowEvent},
         event_loop::{ActiveEventLoop, EventLoop},
         keyboard::NamedKey,
         window::WindowId,
@@ -126,6 +126,12 @@ impl ApplicationHandler<UiEvent> for WinitApp<'_> {
                     _ => (),
                 }
             }
+        });
+    }
+
+    fn new_events(&mut self, el: &ActiveEventLoop, _cause: StartCause) {
+        self.app_state.with_active_event_loop(el, || {
+            self.app_state.dispatch_callbacks();
         });
     }
 

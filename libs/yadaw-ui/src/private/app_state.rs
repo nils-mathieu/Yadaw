@@ -4,10 +4,11 @@ use {
     std::{
         cell::{Cell, RefCell},
         rc::{Rc, Weak},
+        time::Instant,
     },
     vello::Scene,
     winit::{
-        event_loop::ActiveEventLoop,
+        event_loop::{ActiveEventLoop, ControlFlow},
         window::{WindowAttributes, WindowId},
     },
 };
@@ -41,6 +42,10 @@ pub struct AppState {
     /// The reference counted pointers here are supposed to be the only one with strong references,
     /// so that the windows can be destroyed easily by dropping that reference.
     windows: RefCell<FxHashMap<WindowId, Rc<WindowState>>>,
+
+    /// The list of functions that need to be called at a specific time.
+    #[allow(clippy::type_complexity)]
+    timed_callbacks: RefCell<Vec<(Instant, Box<dyn FnOnce()>)>>,
 }
 
 impl AppState {
@@ -50,6 +55,7 @@ impl AppState {
             active_event_loop: Cell::new(std::ptr::null()),
             renderer: RefCell::new(None),
             windows: RefCell::new(FxHashMap::default()),
+            timed_callbacks: RefCell::new(Vec::new()),
         })
     }
 
@@ -109,8 +115,6 @@ impl AppState {
     ///
     /// This function panics if the [`ActiveEventLoop`] is not available.
     pub fn create_window(&self, mut attrs: WindowAttributes) -> Weak<WindowState> {
-        // We can't show the window instantly because we want to render a frame before it is
-        // shown for the first time.
         let show_window = attrs.visible;
         attrs.visible = false;
 
@@ -168,5 +172,46 @@ impl AppState {
             .borrow_mut()
             .as_mut()
             .expect("The renderer is not available"))
+    }
+
+    /// Requests a timed callback to be executed at the specified instant.
+    ///
+    /// # Remarks
+    ///
+    /// The callback is guaranteed to be called *after* the specified instant. In other words,
+    /// it is possible for the callback to be called later than requested.
+    pub fn request_callback(&self, instant: Instant, f: Box<dyn FnOnce() + 'static>) {
+        let ael = unsafe { self.active_event_loop() };
+        self.timed_callbacks.borrow_mut().push((instant, f));
+        if !matches!(ael.control_flow(), ControlFlow::WaitUntil(when) if when < instant) {
+            ael.set_control_flow(ControlFlow::WaitUntil(instant));
+        }
+    }
+
+    /// Dispatches the timed callbacks that are due.
+    pub fn dispatch_callbacks(&self) {
+        let now = Instant::now();
+        let mut timed_callbacks = self.timed_callbacks.borrow_mut();
+
+        let mut wake_up_at = None::<Instant>;
+
+        let mut i = 0;
+        while i < timed_callbacks.len() {
+            if timed_callbacks[i].0 <= now {
+                (timed_callbacks.swap_remove(i).1)();
+            } else {
+                if !matches!(wake_up_at, Some(when) if when < timed_callbacks[i].0) {
+                    wake_up_at = Some(timed_callbacks[i].0);
+                }
+
+                i += 1;
+            }
+        }
+
+        let ael = unsafe { self.active_event_loop() };
+        match wake_up_at {
+            Some(when) => ael.set_control_flow(ControlFlow::WaitUntil(when)),
+            None => ael.set_control_flow(ControlFlow::Wait),
+        }
     }
 }

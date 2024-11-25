@@ -3,6 +3,7 @@ use {
     std::{
         fmt::Debug,
         rc::{Rc, Weak},
+        time::{Duration, Instant},
     },
     winit::window::WindowAttributes,
 };
@@ -51,10 +52,28 @@ impl App {
     /// It is possible for more events to be dispatched after this function has been called.
     /// However, the runtime will exit as soon as the control flow reaches the end of the current
     /// event loop iteration.
-    #[inline]
     #[track_caller]
     pub fn exit(&self) {
         self.state().exit();
+    }
+
+    /// Requests a timed callback to be executed at the specified instant.
+    #[track_caller]
+    pub fn request_callback_at(&self, instant: Instant, callback: impl FnOnce() + 'static) {
+        let b = Box::new(callback);
+        self.state().request_callback(instant, b);
+    }
+
+    /// Requests a timed callback to be executed in the specified amount of time.
+    ///
+    /// # Remarks
+    ///
+    /// The callback will be executed after the specified duration has elapsed.
+    #[track_caller]
+    pub fn request_callback(&self, duration: Duration, callback: impl FnOnce() + 'static) {
+        let b = Box::new(callback);
+        let at = Instant::now() + duration;
+        self.state().request_callback(at, b);
     }
 }
 
