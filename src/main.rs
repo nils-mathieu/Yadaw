@@ -1,6 +1,6 @@
 //! The Yadaw digital audio workstation.
 
-use yadaw_ui::winit::{dpi::PhysicalSize, window::WindowAttributes};
+use yadaw_ui::{dpi::PhysicalSize, winit::window::WindowAttributes};
 
 fn main() {
     yadaw_ui::runtime::run(|app| {
