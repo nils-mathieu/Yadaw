@@ -114,7 +114,7 @@ impl AppState {
     /// # Panics
     ///
     /// This function panics if the [`ActiveEventLoop`] is not available.
-    pub fn create_window(&self, mut attrs: WindowAttributes) -> Weak<WindowState> {
+    pub fn create_window(self: &Rc<Self>, mut attrs: WindowAttributes) -> Weak<WindowState> {
         let show_window = attrs.visible;
         attrs.visible = false;
 
@@ -132,7 +132,7 @@ impl AppState {
             (window, renderer.insert(created_renderer))
         };
 
-        let window = WindowState::new(window);
+        let window = WindowState::new(window, Rc::downgrade(self));
 
         if show_window {
             window.render(renderer, &mut Scene::new());

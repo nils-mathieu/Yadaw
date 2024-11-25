@@ -1,7 +1,14 @@
 use {
-    crate::private::{Renderer, SurfaceTarget},
-    std::{cell::Cell, rc::Rc},
-    vello::{peniko::Color, Scene},
+    crate::{
+        element::{ElemCtx, Element},
+        private::{AppState, Renderer, SurfaceTarget},
+        App, Window,
+    },
+    std::{
+        cell::{Cell, RefCell},
+        rc::{Rc, Weak},
+    },
+    vello::{kurbo::Size, peniko::Color, Scene},
     winit::{dpi::PhysicalSize, window::Window as OsWindow},
 };
 
@@ -11,6 +18,8 @@ enum DirtyState {
     /// The window is not dirty. Nothing needs to be done.
     #[default]
     Clean,
+    /// The layout of the elements in the window needs to be re-calculated.
+    Layout,
     /// The surface needs to be re-configured.
     Surface,
 }
@@ -21,6 +30,9 @@ enum DirtyState {
 pub struct WindowState {
     /// The underlying window object that is managed by the `winit` crate.
     window: SurfaceTarget,
+
+    /// The global application state.
+    app: Weak<AppState>,
 
     /// The dirty state of the window.
     dirty_state: Cell<DirtyState>,
@@ -36,19 +48,24 @@ pub struct WindowState {
 
     /// The current inner size of the window.
     size: Cell<PhysicalSize<u32>>,
+
+    /// The root element of the window.
+    root_element: RefCell<Box<dyn Element>>,
 }
 
 impl WindowState {
     /// Creates a new [`WindowState`] instance.
-    pub fn new(window: SurfaceTarget) -> Rc<Self> {
+    pub fn new(window: SurfaceTarget, app: Weak<AppState>) -> Rc<Self> {
         let size = window.inner_size();
 
         Rc::new(Self {
             window,
+            app,
             dirty_state: Cell::new(DirtyState::Surface),
             closing: Cell::new(false),
             size: Cell::new(size),
             clear_color: Cell::new(Color::WHITE),
+            root_element: RefCell::new(Box::new(())),
         })
     }
 
@@ -78,6 +95,20 @@ impl WindowState {
         self.dirty_state.set(self.dirty_state.get().max(dirt));
     }
 
+    /// Returns a [`ElemCtx`] instance for the window.
+    fn elem_ctx(self: &Rc<Self>) -> ElemCtx {
+        let app = self.app.clone();
+        let window = Rc::downgrade(self);
+        let size = self.size.get();
+
+        ElemCtx {
+            parent_size: Size::new(size.width as f64, size.height as f64),
+            scale_factor: 1.0,
+            window: Window::from_state(window),
+            app: App::from_state(app),
+        }
+    }
+
     /// Notifies the window state that the size of the window has changed.
     pub fn set_size(&self, size: PhysicalSize<u32>) {
         self.size.set(size);
@@ -92,7 +123,7 @@ impl WindowState {
     ///
     /// * `scratch_scene` - The scratch scene that is used to render the window's content. Note
     ///   that the scene's content will be ignored and cleared before rendering.
-    pub fn render(&self, renderer: &mut Renderer, scratch_scene: &mut Scene) {
+    pub fn render(self: &Rc<Self>, renderer: &mut Renderer, scratch_scene: &mut Scene) {
         let dirty_state = self.dirty_state.take();
 
         if dirty_state >= DirtyState::Surface {
@@ -100,12 +131,26 @@ impl WindowState {
                 .re_configure_swapchain(renderer, self.size.get());
         }
 
+        let mut root = self.root_element.borrow_mut();
+        let elem_ctx = self.elem_ctx();
+
+        if dirty_state >= DirtyState::Layout {
+            root.place(&elem_ctx, elem_ctx.parent_size().to_rect());
+        }
+
         scratch_scene.reset();
+        root.render(&elem_ctx, scratch_scene);
         self.window.render(
             renderer,
             self.size.get(),
             self.clear_color.get(),
             scratch_scene,
         );
+    }
+
+    /// Sets the root element of the window.
+    pub fn set_root_element(&self, root: Box<dyn Element>) {
+        *self.root_element.borrow_mut() = root;
+        self.add_dirt(DirtyState::Layout);
     }
 }

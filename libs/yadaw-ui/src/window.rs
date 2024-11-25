@@ -1,5 +1,5 @@
 use {
-    crate::private::WindowState,
+    crate::{element::Element, private::WindowState},
     std::{
         fmt::Debug,
         rc::{Rc, Weak},
@@ -42,6 +42,18 @@ impl Window {
         self.0
             .upgrade()
             .expect("The window has been closed previously")
+    }
+
+    /// Sets the root element of the window to the provided element.
+    #[track_caller]
+    pub fn set_root_element(&self, element: impl Element + 'static) {
+        self.state().set_root_element(Box::new(element));
+    }
+
+    /// Sets the root element of the window to the provided element.
+    #[track_caller]
+    pub fn set_root_element_boxed(&self, element: Box<dyn Element>) {
+        self.state().set_root_element(element)
     }
 
     /// Requests the window to close.

@@ -11,6 +11,7 @@
 //! The main goal of this library is to provide a simple and easy-to-use API for creating
 //! user interfaces in the Yadaw digital audio workstation.
 
+pub mod element;
 pub mod private;
 pub mod runtime;
 
