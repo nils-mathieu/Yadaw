@@ -20,5 +20,4 @@ pub use self::window::*;
 mod app;
 pub use self::app::*;
 
-pub use winit;
-pub use winit::dpi;
+pub use {winit, winit::dpi};

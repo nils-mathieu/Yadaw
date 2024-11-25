@@ -1,10 +1,11 @@
 use {
-    crate::private::WindowState,
+    crate::private::{Renderer, WindowState},
     rustc_hash::FxHashMap,
     std::{
         cell::{Cell, RefCell},
         rc::{Rc, Weak},
     },
+    vello::Scene,
     winit::{
         event_loop::ActiveEventLoop,
         window::{WindowAttributes, WindowId},
@@ -27,6 +28,14 @@ pub struct AppState {
     /// (e.g. by storing it in a global variable).
     active_event_loop: Cell<*const ActiveEventLoop>,
 
+    /// The renderer responsible for rendering 2D graphics.
+    ///
+    /// # Remarks
+    ///
+    /// This field is left as a `None` value until the first window is created. This is because
+    /// creating the renderer requires an existing window to be available.
+    renderer: RefCell<Option<Renderer>>,
+
     /// The windows that are currently managed by the UI framework.
     ///
     /// The reference counted pointers here are supposed to be the only one with strong references,
@@ -39,6 +48,7 @@ impl AppState {
     pub fn new() -> Rc<Self> {
         Rc::new(Self {
             active_event_loop: Cell::new(std::ptr::null()),
+            renderer: RefCell::new(None),
             windows: RefCell::new(FxHashMap::default()),
         })
     }
@@ -98,15 +108,35 @@ impl AppState {
     /// # Panics
     ///
     /// This function panics if the [`ActiveEventLoop`] is not available.
-    pub fn create_window(self: &Rc<Self>, attrs: WindowAttributes) -> Weak<WindowState> {
+    pub fn create_window(&self, mut attrs: WindowAttributes) -> Weak<WindowState> {
+        // We can't show the window instantly because we want to render a frame before it is
+        // shown for the first time.
+        let show_window = attrs.visible;
+        attrs.visible = false;
+
         let ael = unsafe { self.active_event_loop() };
         let window = ael
             .create_window(attrs)
             .expect("Failed to create a new window");
         let wid = window.id();
-        let state = WindowState::new(window);
-        let weak = Rc::downgrade(&state);
-        self.windows.borrow_mut().insert(wid, state);
+
+        let mut renderer = self.renderer.borrow_mut();
+        let (window, renderer) = if let Some(renderer) = renderer.as_mut() {
+            (renderer.create_surface(window), renderer)
+        } else {
+            let (created_renderer, window) = Renderer::new_with_surface(window);
+            (window, renderer.insert(created_renderer))
+        };
+
+        let window = WindowState::new(window);
+
+        if show_window {
+            window.render(renderer, &mut Scene::new());
+            window.os_window().set_visible(true);
+        }
+
+        let weak = Rc::downgrade(&window);
+        self.windows.borrow_mut().insert(wid, window);
         weak
     }
 
@@ -125,5 +155,18 @@ impl AppState {
     /// Returns the number of windows that are currently managed by the UI framework.
     pub fn window_count(&self) -> usize {
         self.windows.borrow().len()
+    }
+
+    /// Calls the provided function with the renderer.
+    ///
+    /// # Panics
+    ///
+    /// This function panics if the renderer is not available.
+    pub fn with_renderer_mut<R>(&self, f: impl FnOnce(&mut Renderer) -> R) -> R {
+        f(self
+            .renderer
+            .borrow_mut()
+            .as_mut()
+            .expect("The renderer is not available"))
     }
 }

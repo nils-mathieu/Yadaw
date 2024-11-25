@@ -13,6 +13,7 @@
 use {
     crate::{private::AppState, App},
     std::rc::Rc,
+    vello::Scene,
     winit::{
         application::ApplicationHandler,
         event::WindowEvent,
@@ -76,6 +77,11 @@ struct WinitApp<'a> {
 
     /// The global application state.
     app_state: Rc<AppState>,
+
+    /// The scene that will be used to render the windows. Instead of re-creating the scene
+    /// every time a window needs to be rendered, we can re-use the same scene for all windows,
+    /// re-using the same resources and allocations.
+    scratch_scene: Scene,
 }
 
 impl<'a> WinitApp<'a> {
@@ -84,6 +90,7 @@ impl<'a> WinitApp<'a> {
         Self {
             init_fn: Some(init_fn),
             app_state: AppState::new(),
+            scratch_scene: Scene::new(),
         }
     }
 }
@@ -107,6 +114,14 @@ impl ApplicationHandler<UiEvent> for WinitApp<'_> {
                         if event.state.is_pressed() && event.logical_key == NamedKey::Escape {
                             window.close();
                         }
+                    }
+                    WindowEvent::Resized(new_size) => {
+                        window.set_size(new_size);
+                    }
+                    WindowEvent::RedrawRequested => {
+                        self.app_state.with_renderer_mut(|renderer| {
+                            window.render(renderer, &mut self.scratch_scene);
+                        });
                     }
                     _ => (),
                 }
