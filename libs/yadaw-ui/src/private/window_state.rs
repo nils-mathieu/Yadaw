@@ -51,12 +51,18 @@ pub struct WindowState {
 
     /// The root element of the window.
     root_element: RefCell<Box<dyn Element>>,
+    /// The current scale factor.
+    ///
+    /// This is used to scale the window's content to match the actual size of the window
+    /// on high-DPI displays.
+    scale_factor: Cell<f64>,
 }
 
 impl WindowState {
     /// Creates a new [`WindowState`] instance.
     pub fn new(window: SurfaceTarget, app: Weak<AppState>) -> Rc<Self> {
         let size = window.inner_size();
+        let scale_factor = window.scale_factor();
 
         Rc::new(Self {
             window,
@@ -66,6 +72,7 @@ impl WindowState {
             size: Cell::new(size),
             clear_color: Cell::new(Color::WHITE),
             root_element: RefCell::new(Box::new(())),
+            scale_factor: Cell::new(scale_factor),
         })
     }
 
@@ -93,19 +100,18 @@ impl WindowState {
     /// Adds dirt to the window state.
     fn add_dirt(&self, dirt: DirtyState) {
         self.dirty_state.set(self.dirty_state.get().max(dirt));
+        self.window.request_redraw();
     }
 
     /// Returns a [`ElemCtx`] instance for the window.
     fn elem_ctx(self: &Rc<Self>) -> ElemCtx {
-        let app = self.app.clone();
-        let window = Rc::downgrade(self);
         let size = self.size.get();
 
         ElemCtx {
             parent_size: Size::new(size.width as f64, size.height as f64),
-            scale_factor: 1.0,
-            window: Window::from_state(window),
-            app: App::from_state(app),
+            scale_factor: self.scale_factor.get(),
+            window: Window::from_state(Rc::downgrade(self)),
+            app: App::from_state(self.app.clone()),
         }
     }
 
@@ -151,6 +157,12 @@ impl WindowState {
     /// Sets the root element of the window.
     pub fn set_root_element(&self, root: Box<dyn Element>) {
         *self.root_element.borrow_mut() = root;
+        self.add_dirt(DirtyState::Layout);
+    }
+
+    /// Updates the scale factor of the window.
+    pub fn set_scale_factor(&self, scale_factor: f64) {
+        self.scale_factor.set(scale_factor);
         self.add_dirt(DirtyState::Layout);
     }
 }

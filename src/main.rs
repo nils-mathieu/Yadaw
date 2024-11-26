@@ -1,10 +1,21 @@
 //! The Yadaw digital audio workstation.
 
-use yadaw_ui::{dpi::PhysicalSize, winit::window::WindowAttributes};
+use yadaw_ui::{
+    dpi::PhysicalSize,
+    elem::{self, shapes::RoundedRectangle, Length},
+    peniko::Color,
+    winit::window::WindowAttributes,
+};
 
 fn main() {
     yadaw_ui::runtime::run(|app| {
-        app.create_window(window_attributes());
+        let window = app.create_window(window_attributes());
+
+        window.set_root_element(
+            elem::shapes::ShapeElement::<RoundedRectangle>::default()
+                .with_brush(Color::RED)
+                .with_corner_radius(Length::Pixels(64.0)),
+        )
     });
 }
 

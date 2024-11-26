@@ -123,6 +123,9 @@ impl ApplicationHandler<UiEvent> for WinitApp<'_> {
                             window.render(renderer, &mut self.scratch_scene);
                         });
                     }
+                    WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
+                        window.set_scale_factor(scale_factor);
+                    }
                     _ => (),
                 }
             }

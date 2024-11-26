@@ -27,4 +27,17 @@ impl SizeHint {
         min: Size::ZERO,
         max: Size::ZERO,
     };
+
+    /// Returns the [`SizeHint`] that includes both the constraints of `self` and `other`.
+    pub fn union(&self, other: &Self) -> Self {
+        let min_x = self.min.width.max(other.min.width);
+        let min_y = self.min.height.max(other.min.height);
+        let max_x = self.max.width.min(other.max.width);
+        let max_y = self.max.height.min(other.max.height);
+
+        Self {
+            min: Size::new(min_x, min_y),
+            max: Size::new(max_x, max_y),
+        }
+    }
 }

@@ -11,6 +11,7 @@
 //! The main goal of this library is to provide a simple and easy-to-use API for creating
 //! user interfaces in the Yadaw digital audio workstation.
 
+pub mod elem;
 pub mod element;
 pub mod private;
 pub mod runtime;
@@ -21,4 +22,8 @@ pub use self::window::*;
 mod app;
 pub use self::app::*;
 
-pub use {winit, winit::dpi};
+pub use {
+    vello::{kurbo, peniko},
+    winit,
+    winit::dpi,
+};
