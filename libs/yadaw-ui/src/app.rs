@@ -1,6 +1,7 @@
 use {
-    crate::{private::AppState, Window},
+    crate::{private::AppState, UiResources, Window},
     std::{
+        any::Any,
         fmt::Debug,
         rc::{Rc, Weak},
         time::{Duration, Instant},
@@ -74,6 +75,48 @@ impl App {
         let b = Box::new(callback);
         let at = Instant::now() + duration;
         self.state().request_callback(at, b);
+    }
+
+    /// Calls the provided function with the [`UiResources`] instance.
+    #[track_caller]
+    pub fn with_resources_mut<R>(&self, f: impl FnOnce(&mut UiResources) -> R) -> R {
+        f(&mut self.state().ui_resources().borrow_mut())
+    }
+
+    /// Calls the provided function with the [`UiResources`] instance.
+    #[track_caller]
+    pub fn with_resources<R>(&self, f: impl FnOnce(&UiResources) -> R) -> R {
+        f(&self.state().ui_resources().borrow())
+    }
+
+    /// Inserts a new resource into the UI resources.
+    ///
+    /// # Returns
+    ///
+    /// This function returns the previous resource of the same type, if any.
+    #[track_caller]
+    pub fn insert_resource<T: Any>(&self, resource: T) -> Option<T> {
+        self.with_resources_mut(|res| res.insert(resource))
+    }
+
+    /// Calls the provided function with the resource of type `T`.
+    ///
+    /// # Panics
+    ///
+    /// The function panics if the resource is not available.
+    #[track_caller]
+    pub fn with_resource<R, T: Any>(&self, f: impl FnOnce(&T) -> R) -> R {
+        self.with_resources(|res| f(res.get::<T>().expect("Resource not found")))
+    }
+
+    /// Calls the provided function with the resource of type `T`.
+    ///
+    /// # Panics
+    ///
+    /// The function panics if the resource is not available.
+    #[track_caller]
+    pub fn with_resource_mut<R, T: Any>(&self, f: impl FnOnce(&mut T) -> R) -> R {
+        self.with_resources_mut(|res| f(res.get_mut::<T>().expect("Resource not found")))
     }
 }
 

@@ -1,6 +1,10 @@
 use {
-    crate::private::{Renderer, WindowState},
-    rustc_hash::FxHashMap,
+    crate::{
+        private::{Renderer, WindowState},
+        UiResources,
+    },
+    hashbrown::HashMap,
+    rustc_hash::FxBuildHasher,
     std::{
         cell::{Cell, RefCell},
         rc::{Rc, Weak},
@@ -41,11 +45,14 @@ pub struct AppState {
     ///
     /// The reference counted pointers here are supposed to be the only one with strong references,
     /// so that the windows can be destroyed easily by dropping that reference.
-    windows: RefCell<FxHashMap<WindowId, Rc<WindowState>>>,
+    windows: RefCell<HashMap<WindowId, Rc<WindowState>, FxBuildHasher>>,
 
     /// The list of functions that need to be called at a specific time.
     #[allow(clippy::type_complexity)]
     timed_callbacks: RefCell<Vec<(Instant, Box<dyn FnOnce()>)>>,
+
+    /// The resources that are available to the UI.
+    ui_resources: RefCell<UiResources>,
 }
 
 impl AppState {
@@ -54,8 +61,9 @@ impl AppState {
         Rc::new(Self {
             active_event_loop: Cell::new(std::ptr::null()),
             renderer: RefCell::new(None),
-            windows: RefCell::new(FxHashMap::default()),
+            windows: RefCell::new(HashMap::default()),
             timed_callbacks: RefCell::new(Vec::new()),
+            ui_resources: RefCell::new(UiResources::default()),
         })
     }
 
@@ -213,5 +221,11 @@ impl AppState {
             Some(when) => ael.set_control_flow(ControlFlow::WaitUntil(when)),
             None => ael.set_control_flow(ControlFlow::Wait),
         }
+    }
+
+    /// Returns the resources that are available to the UI.
+    #[inline]
+    pub fn ui_resources(&self) -> &RefCell<UiResources> {
+        &self.ui_resources
     }
 }

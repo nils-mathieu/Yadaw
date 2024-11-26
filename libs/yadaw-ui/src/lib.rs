@@ -22,7 +22,11 @@ pub use self::window::*;
 mod app;
 pub use self::app::*;
 
+mod ui_resources;
+pub use self::ui_resources::*;
+
 pub use {
+    parley,
     vello::{kurbo, peniko},
     winit,
     winit::dpi,
