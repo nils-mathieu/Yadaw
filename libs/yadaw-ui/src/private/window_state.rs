@@ -130,6 +130,10 @@ impl WindowState {
     /// * `scratch_scene` - The scratch scene that is used to render the window's content. Note
     ///   that the scene's content will be ignored and cleared before rendering.
     pub fn render(self: &Rc<Self>, renderer: &mut Renderer, scratch_scene: &mut Scene) {
+        if self.size.get().width == 0 || self.size.get().height == 0 {
+            return;
+        }
+
         let dirty_state = self.dirty_state.take();
 
         if dirty_state >= DirtyState::Surface {
