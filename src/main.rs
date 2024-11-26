@@ -2,9 +2,8 @@
 
 use yadaw_ui::{
     dpi::PhysicalSize,
-    elem::{self, shapes::RoundedRectangle, Length},
+    elem::{self, Length},
     parley::FontContext,
-    peniko::Color,
     winit::window::WindowAttributes,
     App,
 };
@@ -16,9 +15,10 @@ fn main() {
         let window = app.create_window(window_attributes());
 
         window.set_root_element(
-            elem::shapes::ShapeElement::<RoundedRectangle>::default()
-                .with_brush(Color::RED)
-                .with_corner_radius(Length::Pixels(64.0)),
+            elem::Text::new("Hello, world!\nTest")
+                .with_basic_style()
+                .with_font_family("nunito, sans-serif")
+                .with_font_size(Length::Pixels(64.0)),
         );
     });
 }

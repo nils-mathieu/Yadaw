@@ -56,4 +56,39 @@ impl UiResources {
             .get_mut(&TypeId::of::<T>())
             .map(|val| unsafe { val.downcast_mut().unwrap_unchecked() })
     }
+
+    /// Gets many references to values of types `T` from the resource map.
+    #[inline]
+    pub fn get_many_mut<T: _private::GetManyMut>(&mut self) -> T::Output<'_> {
+        T::get_many_mut(self)
+    }
+}
+
+mod _private {
+    use {crate::UiResources, std::any::TypeId};
+
+    pub trait GetManyMut {
+        type Output<'a>;
+
+        fn get_many_mut(res: &mut UiResources) -> Self::Output<'_>;
+    }
+
+    macro_rules! impl_get_many {
+        ($($ty:ident),* $(,)?) => {
+            impl<$($ty: 'static),*> GetManyMut for ($($ty,)*) {
+                type Output<'a> = ($(Option<&'a mut $ty>,)*);
+
+                #[allow(clippy::unused_unit, non_snake_case)]
+                fn get_many_mut(res: &mut UiResources) -> Self::Output<'_> {
+                    let [$($ty),*] = res.0.get_many_mut([$(&TypeId::of::<$ty>()),*]);
+                    unsafe { ( $( $ty.map(|x| x.downcast_mut().unwrap_unchecked()), )* ) }
+                }
+            }
+        };
+    }
+
+    impl_get_many!(A);
+    impl_get_many!(A, B);
+    impl_get_many!(A, B, C);
+    impl_get_many!(A, B, C, D);
 }
