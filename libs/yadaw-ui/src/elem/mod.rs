@@ -13,9 +13,6 @@ pub mod linear_layout;
 mod length;
 pub use self::length::Length;
 
-mod with_size;
-pub use self::with_size::WithSize;
-
 mod lazy_linear_layout;
 pub use self::lazy_linear_layout::LazyLinearLayout;
 

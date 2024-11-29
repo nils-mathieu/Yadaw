@@ -6,6 +6,7 @@ use yadaw_ui::{
     element::{ElemCtx, Element, Event, EventResult},
     event::{self, NamedKey},
     parley::FontContext,
+    peniko::Color,
     winit::window::WindowAttributes,
     App,
 };
@@ -38,15 +39,19 @@ fn global_event_handler(cx: &ElemCtx, event: &dyn Event) -> EventResult {
     EventResult::Ignored
 }
 
-const LOREM_IPSUM: &str = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.";
-
 /// Builds the application tree.
 fn app_element() -> impl Element {
     elem::WithScroll::new(
-        elem::Text::new(LOREM_IPSUM)
-            .with_basic_style()
-            .with_font_family("nunito, sans-serif")
-            .with_font_size(elem::Length::Pixels(64.0)),
+        elem::LazyLinearLayout::new(|index| {
+            elem::Text::new(format!("Item {index}"))
+                .with_basic_style()
+                .with_font_family("nunito sans-serif")
+                .with_brush(Color::BLACK.into())
+                .with_font_size(elem::Length::Pixels(24.0))
+        })
+        .with_child_width(elem::Length::ParentWidth(1.0))
+        .with_child_height(elem::Length::Pixels(50.0))
+        .with_direction_vertical(),
     )
     .with_scroll_x(false)
 }

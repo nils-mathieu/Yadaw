@@ -41,8 +41,6 @@ struct UnstyledText {
     /// The current size of the text.
     size: SetSize,
 
-    /// The text content of the element.
-    text: String,
     /// The alignment of the text.
     alignment: Alignment,
     /// Whether lines should be allowed to break.
@@ -59,12 +57,6 @@ impl UnstyledText {
     #[inline]
     pub fn add_dirt(&mut self, dirt: DirtyState) {
         self.dirty_state = self.dirty_state.max(dirt);
-    }
-
-    /// Builds the layout of the text.
-    pub fn set_text(&mut self, text: String) {
-        self.text = text;
-        self.add_dirt(DirtyState::Text);
     }
 
     /// Sets the alignment of the text.
@@ -91,7 +83,7 @@ impl UnstyledText {
     }
 
     /// Builds the layout of the text.
-    pub fn build(&mut self, cx: &ElemCtx, style: &mut dyn TextStyle) {
+    pub fn build(&mut self, cx: &ElemCtx, text: &str, style: &mut dyn TextStyle) {
         if self.dirty_state >= DirtyState::Text {
             cx.app().with_resources_mut(|res| {
                 res.get_or_insert_default::<FontContext>();
@@ -101,9 +93,9 @@ impl UnstyledText {
                 let fcx = fcx.unwrap();
                 let lcx = lcx.unwrap();
 
-                let mut style_builder = lcx.ranged_builder(fcx, &self.text, 1.0);
-                style.build(cx, &self.text, &mut style_builder);
-                style_builder.build_into(&mut self.layout, &self.text);
+                let mut style_builder = lcx.ranged_builder(fcx, text, 1.0);
+                style.build(cx, text, &mut style_builder);
+                style_builder.build_into(&mut self.layout, text);
             });
         }
 
@@ -128,8 +120,8 @@ impl UnstyledText {
     }
 
     /// Returns the metrics of the text element.
-    pub fn metrics(&mut self, cx: &ElemCtx, style: &mut dyn TextStyle) -> Metrics {
-        self.build(cx, style);
+    pub fn metrics(&mut self, cx: &ElemCtx, text: &str, style: &mut dyn TextStyle) -> Metrics {
+        self.build(cx, text, style);
 
         let baseline = match self.layout.lines().last() {
             Some(line) => {
@@ -149,8 +141,14 @@ impl UnstyledText {
     }
 
     /// Renders the text element.
-    pub fn render(&mut self, cx: &ElemCtx, scene: &mut Scene, style: &mut dyn TextStyle) {
-        self.build(cx, style);
+    pub fn render(
+        &mut self,
+        cx: &ElemCtx,
+        text: &str,
+        scene: &mut Scene,
+        style: &mut dyn TextStyle,
+    ) {
+        self.build(cx, text, style);
 
         for line in self.layout.lines() {
             for item in line.items() {
@@ -229,21 +227,23 @@ impl TextStyle for BasicTextStyle {
 
 /// A text element.
 #[derive(Clone)]
-pub struct Text<S: ?Sized> {
+pub struct Text<Str, S: ?Sized> {
+    /// The text content of the label.
+    text: Str,
     /// The unstyled part of the text.
     unstyled: UnstyledText,
     /// The style of the text.
     style: S,
 }
 
-impl Text<()> {
+impl<Str> Text<Str, ()> {
     /// Creates a new text element.
-    pub fn new(text: &str) -> Self {
+    pub fn new(text: Str) -> Self {
         Self {
+            text,
             unstyled: UnstyledText {
                 position: Point::ZERO,
                 size: SetSize::unconstrained(),
-                text: String::from(text),
                 alignment: Alignment::Start,
                 break_lines: true,
                 dirty_state: DirtyState::Text,
@@ -254,8 +254,9 @@ impl Text<()> {
     }
 
     /// Creates a new text element with basic style.
-    pub fn with_basic_style(self) -> Text<BasicTextStyle> {
+    pub fn with_basic_style(self) -> Text<Str, BasicTextStyle> {
         Text {
+            text: self.text,
             unstyled: self.unstyled,
             style: BasicTextStyle {
                 brush: Color::BLACK.into(),
@@ -272,7 +273,7 @@ impl Text<()> {
     }
 }
 
-impl Text<BasicTextStyle> {
+impl<Str> Text<Str, BasicTextStyle> {
     /// Sets the brush used to draw the text.
     pub fn with_brush(mut self, brush: Brush) -> Self {
         self.style.brush = brush;
@@ -328,7 +329,7 @@ impl Text<BasicTextStyle> {
     }
 }
 
-impl<S> Text<S> {
+impl<Str, S> Text<Str, S> {
     /// Sets the alignment of the text.
     pub fn with_alignment(mut self, alignment: Alignment) -> Self {
         self.unstyled.alignment = alignment;
@@ -342,10 +343,16 @@ impl<S> Text<S> {
     }
 }
 
-impl<S: ?Sized> Text<S> {
-    /// Creates a new text element.
-    pub fn set_text(&mut self, text: String) {
-        self.unstyled.set_text(text);
+impl<Str, S: ?Sized> Text<Str, S>
+where
+    Str: AsRef<str>,
+{
+    /// Returns an exclusive reference to the text content of the text element.
+    ///
+    /// Calling this method will automatically invalidate the text content of the element.
+    pub fn text_mut(&mut self) -> &mut Str {
+        self.unstyled.add_dirt(DirtyState::Text);
+        &mut self.text
     }
 
     /// Sets the alignment of the text.
@@ -375,7 +382,10 @@ impl<S: ?Sized> Text<S> {
     }
 }
 
-impl<S: TextStyle> Element for Text<S> {
+impl<Str, S: TextStyle> Element for Text<Str, S>
+where
+    Str: AsRef<str>,
+{
     #[inline]
     fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
         self.unstyled.set_size(cx, size, &mut self.style);
@@ -388,12 +398,14 @@ impl<S: TextStyle> Element for Text<S> {
 
     #[inline]
     fn metrics(&mut self, cx: &ElemCtx) -> Metrics {
-        self.unstyled.metrics(cx, &mut self.style)
+        self.unstyled
+            .metrics(cx, self.text.as_ref(), &mut self.style)
     }
 
     #[inline]
     fn render(&mut self, cx: &ElemCtx, scene: &mut Scene) {
-        self.unstyled.render(cx, scene, &mut self.style);
+        self.unstyled
+            .render(cx, self.text.as_ref(), scene, &mut self.style);
     }
 
     #[inline]

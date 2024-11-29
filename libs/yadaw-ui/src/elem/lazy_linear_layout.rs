@@ -25,7 +25,6 @@ pub struct LazyLinearLayout<E, F: ?Sized> {
 
     /// The direction in which the children are placed.
     direction: Direction,
-
     /// The width of each child.
     child_width: Length,
     /// The height of each child.
@@ -41,6 +40,55 @@ pub struct LazyLinearLayout<E, F: ?Sized> {
     /// fn make_children(index: usize) -> E;
     /// ```
     make_children: F,
+}
+
+impl<E, F> LazyLinearLayout<E, F> {
+    /// Creates a new [`LazyLinearLayout`] with the provided function to create children.
+    pub fn new(make_children: F) -> Self
+    where
+        F: FnMut(usize) -> E,
+    {
+        Self {
+            position: Point::ZERO,
+            size: Size::ZERO,
+            direction: Direction::Horizontal,
+            child_width: Length::ZERO,
+            child_height: Length::ZERO,
+            gap: Length::ZERO,
+            children: Vec::new(),
+            make_children,
+        }
+    }
+
+    /// Sets the direction of the layout to horizontal.
+    pub fn with_direction_horizontal(mut self) -> Self {
+        self.direction = Direction::Horizontal;
+        self
+    }
+
+    /// Sets the direction of the layout to vertical.
+    pub fn with_direction_vertical(mut self) -> Self {
+        self.direction = Direction::Vertical;
+        self
+    }
+
+    /// Sets the width of each child.
+    pub fn with_child_width(mut self, child_width: Length) -> Self {
+        self.child_width = child_width;
+        self
+    }
+
+    /// Sets the height of each child.
+    pub fn with_child_height(mut self, child_height: Length) -> Self {
+        self.child_height = child_height;
+        self
+    }
+
+    /// Sets the gap between each element.
+    pub fn with_gap(mut self, gap: Length) -> Self {
+        self.gap = gap;
+        self
+    }
 }
 
 impl<E, F> LazyLinearLayout<E, F>
@@ -81,11 +129,11 @@ where
         let true_end = end.min(visible_end);
 
         let skipped_children = ((true_start - start) / stride).floor() as usize;
-        let visible_children = ((true_end - true_start) / stride).ceil() as usize;
+        let visible_children = ((true_end - true_start) / stride).ceil() as usize + 1;
 
         // Remove children that are no longer visible.
         self.children.retain(|child| {
-            child.index <= skipped_children || child.index > skipped_children + visible_children
+            child.index >= skipped_children && child.index <= skipped_children + visible_children
         });
 
         let stride_vec2 = self.direction.to_vec2() * stride;
@@ -140,9 +188,7 @@ where
                     "Horizontal LazyLinearLayout does not support having a specific height"
                 );
 
-                let width = size
-                    .width()
-                    .expect("Horizontal LazyLinearLayout does not support unconstrained width");
+                let width = size.width().unwrap_or(f64::INFINITY);
 
                 self.size = Size::new(width, self.child_height.resolve(cx));
             }
@@ -152,9 +198,7 @@ where
                     "Vertical LazyLinearLayout does not support having a specific width"
                 );
 
-                let height = size
-                    .height()
-                    .expect("Vertical LazyLinearLayout does not support unconstrained height");
+                let height = size.height().unwrap_or(f64::INFINITY);
 
                 self.size = Size::new(self.child_width.resolve(cx), height);
             }
