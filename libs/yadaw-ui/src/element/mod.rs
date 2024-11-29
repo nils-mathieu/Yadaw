@@ -12,10 +12,7 @@ pub use self::metrics::*;
 mod event;
 pub use self::event::*;
 
-use vello::{
-    kurbo::{Point, Rect},
-    Scene,
-};
+use vello::{kurbo::Point, Scene};
 
 /// Represents an element that can be rendered to the screen.
 pub trait Element {
@@ -29,38 +26,62 @@ pub trait Element {
     /// * `cx`: The context that is passed along to element methods.
     fn size_hint(&mut self, cx: &ElemCtx) -> SizeHint;
 
-    /// Places the element within the specified bounds.
+    /// Sets the size of the element.
     ///
-    /// After this function has been called, the element should be ready to be rendered.
-    /// Specifically, the [`metrics`], [`render`], [`hit_test`] and [`event`] methods should be
-    /// able to be called without causing issues.
+    /// After this function has been called, the element should be ready to be rendered at
+    /// the position `(0, 0)`. If the position need to change, the [`set_position`] method
+    /// should be used.
     ///
     /// # Parameters
     ///
     /// * `cx`: The context that is passed along to element methods.
     ///
-    /// * `bounds`: The bounds within which the element is placed. This rectangle *should* be
-    ///   within the bounds returned by the [`size_hint`] method. Note that this is not
-    ///   enforced by the framework, so it is up to the implementor to handle invalid bounds
-    ///   properly.
+    /// * `size`: The size of the element. This size *should* be within the bounds returned by
+    ///   the [`size_hint`] method. Note that this is not enforced by the framework, so it is
+    ///   up to the implementor to handle invalid sizes properly.
     ///
-    /// [`size_hint`]: Element::size_hint
-    /// [`metrics`]: Element::metrics
-    /// [`render`]: Element::render
-    /// [`hit_test`]: Element::hit_test
-    /// [`event`]: Element::event
-    fn place(&mut self, cx: &ElemCtx, bounds: Rect);
+    /// [`set_position`]: Element::set_position
+    fn set_size(&mut self, cx: &ElemCtx, size: SetSize);
+
+    /// Sets the position of the element.
+    ///
+    /// This method is called by the layout system to position the element within its parent
+    /// after the size has been set.
+    ///
+    /// # Parameters
+    ///
+    /// * `cx`: The context that is passed along to element methods.
+    ///
+    /// * `position`: The position of the element. This position is absolute and is expressed in
+    ///   screen coordinates.
+    fn set_position(&mut self, cx: &ElemCtx, position: Point);
 
     /// Requests information about the metrics of the element.
     ///
     /// This method is called by the layout system to determine how to size the element.
     ///
+    /// # Remarks
+    ///
+    /// This function assumes that the [`set_size`] and [`set_position`] methods have been called
+    /// previously.
+    ///
+    /// [`set_size`]: Element::set_size
+    /// [`set_position`]: Element::set_position
+    ///
     /// # Parameters
     ///
     /// * `cx`: The context that is passed along to element methods.
-    fn metrics(&self, cx: &ElemCtx) -> Metrics;
+    fn metrics(&mut self, cx: &ElemCtx) -> Metrics;
 
     /// Renders the element to the screen.
+    ///
+    /// # Remarks
+    ///
+    /// This function assumes that the [`set_size`] and [`set_position`] methods have been called
+    /// previously.
+    ///
+    /// [`set_size`]: Element::set_size
+    /// [`set_position`]: Element::set_position
     ///
     /// # Parameters
     ///
@@ -68,6 +89,14 @@ pub trait Element {
     fn render(&mut self, cx: &ElemCtx, scene: &mut Scene);
 
     /// Determines whether the provided point is within the bounds of the element.
+    ///
+    /// # Remarks
+    ///
+    /// This function assumes that the [`set_size`] and [`set_position`] methods have been called
+    /// previously.
+    ///
+    /// [`set_size`]: Element::set_size
+    /// [`set_position`]: Element::set_position
     ///
     /// # Parameters
     ///
@@ -79,9 +108,17 @@ pub trait Element {
     /// # Returns
     ///
     /// Whether the point is within the bounds of the element.
-    fn hit_test(&self, cx: &ElemCtx, point: Point) -> bool;
+    fn hit_test(&mut self, cx: &ElemCtx, point: Point) -> bool;
 
     /// Handles an event that occurred on the element.
+    ///
+    /// # Remarks
+    ///
+    /// This function assumes that the [`set_size`] and [`set_position`] methods have been called
+    /// previously.
+    ///
+    /// [`set_size`]: Element::set_size
+    /// [`set_position`]: Element::set_position
     ///
     /// # Parameters
     ///
@@ -102,10 +139,13 @@ impl Element for () {
     }
 
     #[inline]
-    fn place(&mut self, _cx: &ElemCtx, _bounds: Rect) {}
+    fn set_size(&mut self, _cx: &ElemCtx, _size: SetSize) {}
 
     #[inline]
-    fn metrics(&self, _cx: &ElemCtx) -> Metrics {
+    fn set_position(&mut self, _cx: &ElemCtx, _position: Point) {}
+
+    #[inline]
+    fn metrics(&mut self, _cx: &ElemCtx) -> Metrics {
         Metrics::EMPTY
     }
 
@@ -113,7 +153,7 @@ impl Element for () {
     fn render(&mut self, _cx: &ElemCtx, _scene: &mut Scene) {}
 
     #[inline]
-    fn hit_test(&self, _cx: &ElemCtx, _point: Point) -> bool {
+    fn hit_test(&mut self, _cx: &ElemCtx, _point: Point) -> bool {
         false
     }
 
@@ -130,12 +170,17 @@ impl<E: ?Sized + Element> Element for Box<E> {
     }
 
     #[inline]
-    fn place(&mut self, cx: &ElemCtx, bounds: Rect) {
-        (**self).place(cx, bounds)
+    fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
+        (**self).set_size(cx, size)
     }
 
     #[inline]
-    fn metrics(&self, cx: &ElemCtx) -> Metrics {
+    fn set_position(&mut self, cx: &ElemCtx, position: Point) {
+        (**self).set_position(cx, position)
+    }
+
+    #[inline]
+    fn metrics(&mut self, cx: &ElemCtx) -> Metrics {
         (**self).metrics(cx)
     }
 
@@ -145,7 +190,7 @@ impl<E: ?Sized + Element> Element for Box<E> {
     }
 
     #[inline]
-    fn hit_test(&self, cx: &ElemCtx, point: Point) -> bool {
+    fn hit_test(&mut self, cx: &ElemCtx, point: Point) -> bool {
         (**self).hit_test(cx, point)
     }
 

@@ -3,14 +3,14 @@ pub use parley::Alignment;
 use {
     crate::{
         elem::Length,
-        element::{ElemCtx, Element, Event, EventResult, Metrics, SizeHint},
+        element::{ElemCtx, Element, Event, EventResult, Metrics, SetSize, SizeHint},
     },
     parley::{
         FontContext, FontStack, FontStyle, FontWeight, GenericFamily, LayoutContext,
-        PositionedLayoutItem, RangedBuilder, Rect, StyleProperty,
+        PositionedLayoutItem, RangedBuilder, StyleProperty,
     },
     vello::{
-        kurbo::{Affine, Point},
+        kurbo::{Affine, Point, Size},
         peniko::{Brush, Color, Fill},
         Glyph, Scene,
     },
@@ -36,8 +36,15 @@ enum DirtyState {
 /// This is mostly used to avoid the monomorphisation cost of [`Text`].
 #[derive(Clone)]
 struct UnstyledText {
-    /// The bounds of the text element.
-    bounds: Rect,
+    /// The current position of the text.
+    position: Point,
+    /// The current size of the text.
+    size: SetSize,
+
+    /// The minimum content size of the element.
+    min_content: Size,
+    /// The maximum content size of the element.
+    max_content: Size,
 
     /// The text content of the element.
     text: String,
@@ -90,37 +97,76 @@ impl UnstyledText {
 
                 let mut style_builder = lcx.ranged_builder(fcx, &self.text, 1.0);
                 style.build(cx, &self.text, &mut style_builder);
-
                 style_builder.build_into(&mut self.layout, &self.text);
             });
+
+            // Compute the min and max content sizes of the text element.
+            // This is done by breaking the text into lines with infinite and zero width,
+            // respectively, and then swapping the dimensions if necessary.
+
+            self.layout.break_lines().break_remaining(f32::INFINITY);
+            let mut min_content =
+                Size::new(self.layout.width() as f64, self.layout.height() as f64);
+            self.layout.break_lines().break_remaining(0.0);
+            let mut max_content =
+                Size::new(self.layout.width() as f64, self.layout.height() as f64);
+
+            if min_content.width > max_content.width {
+                std::mem::swap(&mut min_content.width, &mut max_content.width);
+            }
+            if min_content.height > max_content.height {
+                std::mem::swap(&mut min_content.height, &mut max_content.height);
+            }
         }
+
+        let width = match self.size {
+            SetSize::Unconstrained => f32::INFINITY,
+            SetSize::Width(width) => width as f32,
+            SetSize::Height(_) => f32::INFINITY,
+            SetSize::Specific(size) => size.width as f32,
+        };
 
         if self.dirty_state >= DirtyState::Lines {
             self.layout
                 .break_lines()
                 .break_remaining(if self.break_lines {
-                    self.bounds.width() as f32
+                    width
                 } else {
                     f32::INFINITY
                 });
         }
 
         if self.dirty_state >= DirtyState::Alignment {
-            let width = self.break_lines.then_some(self.bounds.width() as f32);
+            let width = self.break_lines.then_some(width);
             self.layout.align(width, self.alignment);
         }
 
         self.dirty_state = DirtyState::Clean;
     }
 
-    /// Places the text element in the specified bounds.
-    pub fn place(&mut self, _cx: &ElemCtx, bounds: Rect, _style: &mut dyn TextStyle) {
-        self.bounds = bounds;
+    /// Returns the size hint of the text element.
+    pub fn size_hint(&mut self, _cx: &ElemCtx) -> SizeHint {
+        SizeHint {
+            min: self.min_content,
+            max: self.max_content,
+        }
+    }
+
+    /// Sets the size of the text element.
+    pub fn set_size(&mut self, _cx: &ElemCtx, size: SetSize, _style: &mut dyn TextStyle) {
+        self.size = size;
         self.add_dirt(DirtyState::Lines);
     }
 
+    /// Sets the position of the text element.
+    pub fn set_position(&mut self, _cx: &ElemCtx, position: Point) {
+        self.position = position;
+    }
+
     /// Returns the metrics of the text element.
-    pub fn metrics(&self) -> Metrics {
+    pub fn metrics(&mut self, cx: &ElemCtx, style: &mut dyn TextStyle) -> Metrics {
+        self.build(cx, style);
+
         let baseline = match self.layout.lines().last() {
             Some(line) => {
                 let metrics = line.metrics();
@@ -129,8 +175,11 @@ impl UnstyledText {
             None => 0.0,
         };
 
+        let layout_size = Size::new(self.layout.width() as f64, self.layout.height() as f64);
+
         Metrics {
-            rect: self.bounds,
+            position: self.position,
+            size: self.size.fallback(layout_size),
             baseline: baseline as f64,
         }
     }
@@ -147,7 +196,7 @@ impl UnstyledText {
                             .draw_glyphs(run.run().font())
                             .brush(&run.style().brush)
                             .font_size(run.run().font_size())
-                            .transform(Affine::translate(self.bounds.origin().to_vec2()))
+                            .transform(Affine::translate(self.position.to_vec2()))
                             .draw(
                                 Fill::NonZero,
                                 run.positioned_glyphs().map(|glyph| Glyph {
@@ -228,7 +277,10 @@ impl Text<()> {
     pub fn new(text: &str) -> Self {
         Self {
             unstyled: UnstyledText {
-                bounds: Rect::ZERO,
+                position: Point::ZERO,
+                min_content: Size::ZERO,
+                max_content: Size::ZERO,
+                size: SetSize::Unconstrained,
                 text: String::from(text),
                 alignment: Alignment::Start,
                 break_lines: true,
@@ -363,18 +415,23 @@ impl<S: ?Sized> Text<S> {
 
 impl<S: TextStyle> Element for Text<S> {
     #[inline]
-    fn size_hint(&mut self, _cx: &ElemCtx) -> SizeHint {
-        SizeHint::ANY
+    fn size_hint(&mut self, cx: &ElemCtx) -> SizeHint {
+        self.unstyled.size_hint(cx)
     }
 
     #[inline]
-    fn place(&mut self, cx: &ElemCtx, bounds: Rect) {
-        self.unstyled.place(cx, bounds, &mut self.style);
+    fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
+        self.unstyled.set_size(cx, size, &mut self.style);
     }
 
     #[inline]
-    fn metrics(&self, _cx: &ElemCtx) -> Metrics {
-        self.unstyled.metrics()
+    fn set_position(&mut self, cx: &ElemCtx, position: Point) {
+        self.unstyled.set_position(cx, position);
+    }
+
+    #[inline]
+    fn metrics(&mut self, cx: &ElemCtx) -> Metrics {
+        self.unstyled.metrics(cx, &mut self.style)
     }
 
     #[inline]
@@ -383,7 +440,7 @@ impl<S: TextStyle> Element for Text<S> {
     }
 
     #[inline]
-    fn hit_test(&self, _cx: &ElemCtx, _point: Point) -> bool {
+    fn hit_test(&mut self, _cx: &ElemCtx, _point: Point) -> bool {
         false
     }
 

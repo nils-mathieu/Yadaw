@@ -1,10 +1,10 @@
 use {
     crate::{
         elem::Length,
-        element::{ElemCtx, Element, Event, EventResult, Metrics, SizeHint},
+        element::{ElemCtx, Element, Event, EventResult, Metrics, SetSize, SizeHint},
     },
     vello::{
-        kurbo::{Point, Rect, Size},
+        kurbo::{Point, Size},
         Scene,
     },
 };
@@ -85,12 +85,17 @@ impl<E: ?Sized + Element> Element for WithSize<E> {
     }
 
     #[inline]
-    fn place(&mut self, cx: &ElemCtx, bounds: Rect) {
-        self.child.place(cx, bounds)
+    fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
+        self.child.set_size(cx, size);
     }
 
     #[inline]
-    fn metrics(&self, cx: &ElemCtx) -> Metrics {
+    fn set_position(&mut self, cx: &ElemCtx, position: Point) {
+        self.child.set_position(cx, position);
+    }
+
+    #[inline]
+    fn metrics(&mut self, cx: &ElemCtx) -> Metrics {
         self.child.metrics(cx)
     }
 
@@ -100,7 +105,7 @@ impl<E: ?Sized + Element> Element for WithSize<E> {
     }
 
     #[inline]
-    fn hit_test(&self, cx: &ElemCtx, point: Point) -> bool {
+    fn hit_test(&mut self, cx: &ElemCtx, point: Point) -> bool {
         self.child.hit_test(cx, point)
     }
 

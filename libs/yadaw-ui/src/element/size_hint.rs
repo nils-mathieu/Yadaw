@@ -41,3 +41,30 @@ impl SizeHint {
         }
     }
 }
+
+/// A way to set the size of an element.
+#[derive(Default, Debug, Clone, Copy)]
+pub enum SetSize {
+    /// A specific size is requested for the element.
+    Specific(Size),
+    /// A specific width is requested for the element. The height is derived from the width.
+    Width(f64),
+    /// A specific height is requested for the element. The width is derived from the height.
+    Height(f64),
+    /// The element is expected to provide a size of its own.
+    #[default]
+    Unconstrained,
+}
+
+impl SetSize {
+    /// Returns the size stored in this [`SetSize`] instance, but falls back to `fallback` if the
+    /// size is not specific.
+    pub fn fallback(self, fallback: Size) -> Size {
+        match self {
+            Self::Specific(size) => size,
+            Self::Width(width) => Size::new(width, fallback.height),
+            Self::Height(height) => Size::new(fallback.width, height),
+            Self::Unconstrained => fallback,
+        }
+    }
+}

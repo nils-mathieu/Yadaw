@@ -1,14 +1,19 @@
 use {
     crate::{
-        element::{ElemCtx, Element},
+        element::{ElemCtx, Element, Event, SetSize},
         private::{AppState, Renderer, SurfaceTarget},
         App, Window,
     },
     std::{
-        cell::{Cell, RefCell},
+        cell::Cell,
+        mem::ManuallyDrop,
         rc::{Rc, Weak},
     },
-    vello::{kurbo::Size, peniko::Color, Scene},
+    vello::{
+        kurbo::{Point, Size},
+        peniko::Color,
+        Scene,
+    },
     winit::{dpi::PhysicalSize, window::Window as OsWindow},
 };
 
@@ -50,7 +55,7 @@ pub struct WindowState {
     size: Cell<PhysicalSize<u32>>,
 
     /// The root element of the window.
-    root_element: RefCell<Box<dyn Element>>,
+    root_element: Cell<Option<Box<dyn Element>>>,
     /// The current scale factor.
     ///
     /// This is used to scale the window's content to match the actual size of the window
@@ -71,7 +76,7 @@ impl WindowState {
             closing: Cell::new(false),
             size: Cell::new(size),
             clear_color: Cell::new(Color::WHITE),
-            root_element: RefCell::new(Box::new(())),
+            root_element: Cell::new(Some(Box::new(()))),
             scale_factor: Cell::new(scale_factor),
         })
     }
@@ -106,13 +111,46 @@ impl WindowState {
     /// Returns a [`ElemCtx`] instance for the window.
     fn elem_ctx(self: &Rc<Self>) -> ElemCtx {
         let size = self.size.get();
+        let size = Size::new(size.width as f64, size.height as f64);
 
         ElemCtx {
-            parent_size: Size::new(size.width as f64, size.height as f64),
+            clip_rect: size.to_rect(),
+            parent_size: size,
             scale_factor: self.scale_factor.get(),
             window: Window::from_state(Rc::downgrade(self)),
             app: App::from_state(self.app.clone()),
         }
+    }
+
+    /// Calls the provided closure with the root element of the window.
+    fn with_root_element<R>(self: &Rc<Self>, f: impl FnOnce(&mut dyn Element) -> R) -> R {
+        struct Guard<'a> {
+            slot: &'a Cell<Option<Box<dyn Element>>>,
+            elem: ManuallyDrop<Box<dyn Element>>,
+        }
+
+        impl Drop for Guard<'_> {
+            fn drop(&mut self) {
+                let elem = unsafe { ManuallyDrop::take(&mut self.elem) };
+
+                if let Some(replaced_by) = self.slot.replace(Some(elem)) {
+                    // The element has been replaced.
+                    self.slot.set(Some(replaced_by));
+                }
+            }
+        }
+
+        let elem = self
+            .root_element
+            .take()
+            .expect("Root element is not available");
+
+        let mut guard = Guard {
+            slot: &self.root_element,
+            elem: ManuallyDrop::new(elem),
+        };
+
+        f(&mut *guard.elem)
     }
 
     /// Notifies the window state that the size of the window has changed.
@@ -141,26 +179,28 @@ impl WindowState {
                 .re_configure_swapchain(renderer, self.size.get());
         }
 
-        let mut root = self.root_element.borrow_mut();
-        let elem_ctx = self.elem_ctx();
+        self.with_root_element(|root| {
+            let elem_ctx = self.elem_ctx();
 
-        if dirty_state >= DirtyState::Layout {
-            root.place(&elem_ctx, elem_ctx.parent_size().to_rect());
-        }
+            if dirty_state >= DirtyState::Layout {
+                root.set_size(&elem_ctx, SetSize::Specific(elem_ctx.parent_size()));
+                root.set_position(&elem_ctx, Point::ZERO);
+            }
 
-        scratch_scene.reset();
-        root.render(&elem_ctx, scratch_scene);
-        self.window.render(
-            renderer,
-            self.size.get(),
-            self.clear_color.get(),
-            scratch_scene,
-        );
+            scratch_scene.reset();
+            root.render(&elem_ctx, scratch_scene);
+            self.window.render(
+                renderer,
+                self.size.get(),
+                self.clear_color.get(),
+                scratch_scene,
+            );
+        });
     }
 
     /// Sets the root element of the window.
     pub fn set_root_element(&self, root: Box<dyn Element>) {
-        *self.root_element.borrow_mut() = root;
+        self.root_element.set(Some(root));
         self.add_dirt(DirtyState::Layout);
     }
 
@@ -168,5 +208,13 @@ impl WindowState {
     pub fn set_scale_factor(&self, scale_factor: f64) {
         self.scale_factor.set(scale_factor);
         self.add_dirt(DirtyState::Layout);
+    }
+
+    /// Dispatches an event to the window and its element tree.
+    pub fn dispatch_event(self: &Rc<Self>, event: &dyn Event) {
+        self.with_root_element(|root| {
+            let elem_ctx = self.elem_ctx();
+            root.event(&elem_ctx, event);
+        });
     }
 }

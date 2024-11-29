@@ -4,11 +4,11 @@
 use {
     crate::{
         elem::Length,
-        element::{ElemCtx, Element, Event, EventResult, Metrics, SizeHint},
+        element::{ElemCtx, Element, Event, EventResult, Metrics, SetSize, SizeHint},
     },
     vello::{
-        kurbo::{Affine, Point, Rect, RoundedRect, RoundedRectRadii, Shape},
-        peniko::{Brush, Fill},
+        kurbo::{Affine, Point, Rect, RoundedRect, RoundedRectRadii, Shape, Size},
+        peniko::{BlendMode, Brush, Fill},
         Scene,
     },
 };
@@ -83,13 +83,18 @@ impl ToShape for RoundedRectangle {
 /// A shape that can be drawn.
 #[derive(Debug, Default, Clone)]
 pub struct ShapeElement<S: ?Sized> {
-    /// The bounds associated with the shape.
-    bounds: Rect,
+    /// The current position of the element.
+    position: Point,
+    /// The current size of the element.
+    size: Size,
 
     /// The brush to use for drawing the shape.
     pub brush: Brush,
     /// The transformation to apply to the brush.
     pub brush_transform: Option<Affine>,
+
+    /// Whether to clip the shape to the bounds of the element.
+    pub clip_child: bool,
 
     /// The shape to draw.
     pub shape: S,
@@ -105,6 +110,12 @@ impl<S> ShapeElement<S> {
     /// Sets the transformation to apply to the brush.
     pub fn with_brush_transform(mut self, brush_transform: Affine) -> Self {
         self.brush_transform = Some(brush_transform);
+        self
+    }
+
+    /// Whether to clip the shape to the bounds of the element.
+    pub fn with_clip_child(mut self, clip_child: bool) -> Self {
+        self.clip_child = clip_child;
         self
     }
 }
@@ -144,39 +155,66 @@ impl ShapeElement<RoundedRectangle> {
     }
 }
 
-impl<S: ToShape> Element for ShapeElement<S> {
+impl<S: ?Sized + ToShape> ShapeElement<S> {
+    /// Computes the shape that is associated with the element.
+    fn to_shape(&self, cx: &ElemCtx) -> S::Shape {
+        self.shape
+            .to_shape(cx, Rect::from_origin_size(self.position, self.size))
+    }
+}
+
+impl<S: ?Sized + ToShape> Element for ShapeElement<S> {
     #[inline]
     fn size_hint(&mut self, _cx: &ElemCtx) -> SizeHint {
         SizeHint::ANY
     }
 
     #[inline]
-    fn place(&mut self, _cx: &ElemCtx, bounds: Rect) {
-        self.bounds = bounds;
+    fn set_position(&mut self, _cx: &ElemCtx, position: Point) {
+        self.position = position;
     }
 
     #[inline]
-    fn metrics(&self, _cx: &ElemCtx) -> Metrics {
+    fn set_size(&mut self, _cx: &ElemCtx, size: SetSize) {
+        self.size = match size {
+            SetSize::Specific(size) => size,
+            _ => panic!("ShapeElement does not support having an unconstrained size"),
+        };
+    }
+
+    #[inline]
+    fn metrics(&mut self, _cx: &ElemCtx) -> Metrics {
         Metrics {
-            rect: self.bounds,
+            position: self.position,
+            size: self.size,
             baseline: 0.0,
         }
     }
 
     #[inline]
     fn render(&mut self, cx: &ElemCtx, scene: &mut Scene) {
+        let shape = self.to_shape(cx);
+
+        if self.clip_child {
+            scene.push_layer(BlendMode::default(), 1.0, Affine::IDENTITY, &shape);
+        }
+
         scene.fill(
             Fill::NonZero,
             Affine::IDENTITY,
             &self.brush,
             self.brush_transform,
-            &self.shape.to_shape(cx, self.bounds),
+            &shape,
         );
+
+        if self.clip_child {
+            scene.pop_layer();
+        }
     }
 
     #[inline]
-    fn hit_test(&self, cx: &ElemCtx, point: Point) -> bool {
-        self.shape.to_shape(cx, self.bounds).contains(point)
+    fn hit_test(&mut self, cx: &ElemCtx, point: Point) -> bool {
+        self.to_shape(cx).contains(point)
     }
 
     #[inline]
@@ -218,13 +256,8 @@ impl<S: ToShape, E: ?Sized + Element> Element for WithBackground<S, E> {
         self.child.size_hint(cx)
     }
 
-    fn place(&mut self, cx: &ElemCtx, bounds: Rect) {
-        self.background.place(cx, bounds);
-        self.child.place(cx, bounds);
-    }
-
     #[inline]
-    fn metrics(&self, cx: &ElemCtx) -> Metrics {
+    fn metrics(&mut self, cx: &ElemCtx) -> Metrics {
         self.child.metrics(cx)
     }
 
@@ -233,12 +266,22 @@ impl<S: ToShape, E: ?Sized + Element> Element for WithBackground<S, E> {
         self.child.render(cx, scene);
     }
 
-    fn hit_test(&self, cx: &ElemCtx, point: Point) -> bool {
+    fn hit_test(&mut self, cx: &ElemCtx, point: Point) -> bool {
         self.child.hit_test(cx, point) || self.background.hit_test(cx, point)
     }
 
     #[inline]
     fn event(&mut self, cx: &ElemCtx, event: &dyn Event) -> EventResult {
         self.child.event(cx, event)
+    }
+
+    #[inline]
+    fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
+        self.child.set_size(cx, size);
+    }
+
+    #[inline]
+    fn set_position(&mut self, cx: &ElemCtx, position: Point) {
+        self.child.set_position(cx, position);
     }
 }

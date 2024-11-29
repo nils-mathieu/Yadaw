@@ -80,6 +80,12 @@ impl Window {
     pub fn set_title(&self, title: &str) {
         self.state().os_window().set_title(title);
     }
+
+    /// Requests the window to redraw its contents.
+    #[track_caller]
+    pub fn request_redraw(&self) {
+        self.state().os_window().request_redraw();
+    }
 }
 
 impl Debug for Window {

@@ -11,14 +11,13 @@
 //! the main event loop of the application.
 
 use {
-    crate::{private::AppState, App},
+    crate::{event, private::AppState, App},
     std::rc::Rc,
     vello::Scene,
     winit::{
         application::ApplicationHandler,
         event::{StartCause, WindowEvent},
         event_loop::{ActiveEventLoop, EventLoop},
-        keyboard::NamedKey,
         window::WindowId,
     },
 };
@@ -109,12 +108,6 @@ impl ApplicationHandler<UiEvent> for WinitApp<'_> {
             if let Some(window) = self.app_state.get_window(wid) {
                 // TODO: Move the event handling logic to the element tree.
                 match ev {
-                    WindowEvent::CloseRequested => window.close(),
-                    WindowEvent::KeyboardInput { event, .. } => {
-                        if event.state.is_pressed() && event.logical_key == NamedKey::Escape {
-                            window.close();
-                        }
-                    }
                     WindowEvent::Resized(new_size) => {
                         window.set_size(new_size);
                     }
@@ -125,6 +118,42 @@ impl ApplicationHandler<UiEvent> for WinitApp<'_> {
                     }
                     WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
                         window.set_scale_factor(scale_factor);
+                    }
+                    WindowEvent::CloseRequested => {
+                        window.dispatch_event(&event::CloseRequested);
+                    }
+                    WindowEvent::KeyboardInput {
+                        device_id,
+                        event,
+                        is_synthetic,
+                    } => {
+                        window.dispatch_event(&event::KeyboardInput {
+                            device_id,
+                            is_synthetic,
+                            inner: event,
+                        });
+                    }
+                    WindowEvent::MouseInput {
+                        device_id,
+                        state,
+                        button,
+                    } => {
+                        window.dispatch_event(&event::MouseInput {
+                            device_id,
+                            state,
+                            button,
+                        });
+                    }
+                    WindowEvent::MouseWheel {
+                        device_id,
+                        delta,
+                        phase,
+                    } => {
+                        window.dispatch_event(&event::WheelInput {
+                            device_id,
+                            delta,
+                            phase,
+                        });
                     }
                     _ => (),
                 }

@@ -13,6 +13,7 @@
 
 pub mod elem;
 pub mod element;
+pub mod event;
 pub mod private;
 pub mod runtime;
 

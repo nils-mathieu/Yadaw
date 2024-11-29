@@ -20,18 +20,25 @@ impl dyn Event {
     /// This function is unsafe because it does not check whether the event is of the correct type.
     /// The caller must ensure that the event is of the correct type.
     #[inline]
-    pub unsafe fn downcast_ref_unchecked<T: Event>(&self) -> &T {
+    pub unsafe fn downcast_unchecked<T: Event>(&self) -> &T {
         unsafe { &*(self as *const dyn Event as *const T) }
     }
 
     /// Downcasts the event to the type `T` if the event is of that type.
     #[inline]
-    pub fn downcast_ref<T: Event>(&self) -> Option<&T> {
+    pub fn downcast<T: Event>(&self) -> Option<&T> {
         if self.is::<T>() {
-            Some(unsafe { self.downcast_ref_unchecked() })
+            Some(unsafe { self.downcast_unchecked() })
         } else {
             None
         }
+    }
+}
+
+impl<T: 'static> Event for T {
+    #[inline]
+    fn type_id(&self) -> TypeId {
+        TypeId::of::<T>()
     }
 }
 

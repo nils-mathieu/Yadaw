@@ -2672,6 +2672,7 @@ dependencies = [
  "parley",
  "pollster",
  "rustc-hash 2.0.0",
+ "smallvec",
  "vello",
  "winit",
 ]

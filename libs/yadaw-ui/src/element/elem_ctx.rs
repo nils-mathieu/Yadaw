@@ -1,10 +1,15 @@
 use {
     crate::{App, Window},
-    vello::kurbo::Size,
+    vello::kurbo::{Rect, Size},
 };
 
 /// A context that is passed along to element methods.
 pub struct ElemCtx {
+    /// The current clip rectangle. Anything outside of that rectangle will not be rendered.
+    ///
+    /// This can be used to avoid rendering parts of the element that are not visible.
+    pub(crate) clip_rect: Rect,
+
     /// The size of the parent element.
     ///
     /// This is the size that the parent element has determined for this element.
@@ -23,13 +28,58 @@ pub struct ElemCtx {
 impl ElemCtx {
     /// Re-creates a new [`ElemCtx`] with the same properties as this one, but with different
     /// element-specific properties.
-    pub fn inherit(&self, parent_size: Size, scale_factor: f64) -> Self {
+    pub fn inherit_all(&self, clip_rect: Rect, parent_size: Size, scale_factor: f64) -> Self {
         Self {
+            clip_rect,
             parent_size,
             scale_factor,
             window: self.window.clone(),
             app: self.app.clone(),
         }
+    }
+
+    /// Re-creates a new [`ElemCtx`] with the same properties as this one, but with a different
+    /// parent size.
+    pub fn inherit_parent_size(&self, parent_size: Size) -> Self {
+        Self {
+            clip_rect: self.clip_rect,
+            parent_size,
+            scale_factor: self.scale_factor,
+            window: self.window.clone(),
+            app: self.app.clone(),
+        }
+    }
+
+    /// Re-creates a new [`ElemCtx`] with the same properties as this one, but with a different
+    /// clip rectangle.
+    pub fn inherit_clip_rect(&self, clip_rect: Rect) -> Self {
+        Self {
+            clip_rect,
+            parent_size: self.parent_size,
+            scale_factor: self.scale_factor,
+            window: self.window.clone(),
+            app: self.app.clone(),
+        }
+    }
+
+    /// Re-creates a new [`ElemCtx`] with the same properties as this one, but with a different
+    /// scale factor.
+    pub fn inherit_scale_factor(&self, scale_factor: f64) -> Self {
+        Self {
+            clip_rect: self.clip_rect,
+            parent_size: self.parent_size,
+            scale_factor,
+            window: self.window.clone(),
+            app: self.app.clone(),
+        }
+    }
+
+    /// Returns the current clip rectangle. Anything outside of that rectangle will not be rendered.
+    ///
+    /// This can be used to avoid rendering parts of the element that are not visible.
+    #[inline]
+    pub fn clip_rect(&self) -> Rect {
+        self.clip_rect
     }
 
     /// Returns the size of the element's parent.
