@@ -79,6 +79,17 @@ impl UnstyledText {
         self.add_dirt(DirtyState::Lines);
     }
 
+    /// Sets the position of the text element.
+    pub fn set_position(&mut self, _cx: &ElemCtx, position: Point) {
+        self.position = position;
+    }
+
+    /// Sets the size of the text element.
+    pub fn set_size(&mut self, _cx: &ElemCtx, size: SetSize, _style: &mut dyn TextStyle) {
+        self.size = size;
+        self.add_dirt(DirtyState::Lines);
+    }
+
     /// Builds the layout of the text.
     pub fn build(&mut self, cx: &ElemCtx, style: &mut dyn TextStyle) {
         if self.dirty_state >= DirtyState::Text {
@@ -94,24 +105,6 @@ impl UnstyledText {
                 style.build(cx, &self.text, &mut style_builder);
                 style_builder.build_into(&mut self.layout, &self.text);
             });
-
-            // Compute the min and max content sizes of the text element.
-            // This is done by breaking the text into lines with infinite and zero width,
-            // respectively, and then swapping the dimensions if necessary.
-
-            self.layout.break_lines().break_remaining(f32::INFINITY);
-            let mut min_content =
-                Size::new(self.layout.width() as f64, self.layout.height() as f64);
-            self.layout.break_lines().break_remaining(0.0);
-            let mut max_content =
-                Size::new(self.layout.width() as f64, self.layout.height() as f64);
-
-            if min_content.width > max_content.width {
-                std::mem::swap(&mut min_content.width, &mut max_content.width);
-            }
-            if min_content.height > max_content.height {
-                std::mem::swap(&mut min_content.height, &mut max_content.height);
-            }
         }
 
         let width = self.size.width().map_or(f32::INFINITY, |w| w as f32);
@@ -132,17 +125,6 @@ impl UnstyledText {
         }
 
         self.dirty_state = DirtyState::Clean;
-    }
-
-    /// Sets the size of the text element.
-    pub fn set_size(&mut self, _cx: &ElemCtx, size: SetSize, _style: &mut dyn TextStyle) {
-        self.size = size;
-        self.add_dirt(DirtyState::Lines);
-    }
-
-    /// Sets the position of the text element.
-    pub fn set_position(&mut self, _cx: &ElemCtx, position: Point) {
-        self.position = position;
     }
 
     /// Returns the metrics of the text element.
@@ -189,7 +171,7 @@ impl UnstyledText {
                             );
                     }
                     PositionedLayoutItem::InlineBox(_) => {
-                        unimplemented!("Inline boxes are not supported yet");
+                        unimplemented!("Inline boxes are not supported");
                     }
                 }
             }

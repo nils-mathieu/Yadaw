@@ -74,6 +74,32 @@ impl<E> WithScroll<E> {
     }
 }
 
+impl<E: ?Sized + Element> WithScroll<E> {
+    /// Clamps the scroll amount to the bounds of the child element.
+    fn scroll(&mut self, cx: &ElemCtx, delta: Vec2) {
+        let child_metrics = self.child.metrics(cx);
+        let old_scroll = self.scroll_amount;
+
+        if self.scroll_x {
+            self.scroll_amount.x = (self.scroll_amount.x + delta.x)
+                .max(child_metrics.size.width - self.size.width)
+                .min(0.0);
+        }
+
+        if self.scroll_y {
+            self.scroll_amount.y = (self.scroll_amount.y + delta.y)
+                .max(self.size.height - child_metrics.size.height)
+                .min(0.0);
+        }
+
+        if old_scroll != self.scroll_amount {
+            self.child
+                .set_position(cx, self.position + self.scroll_amount);
+            cx.window().request_redraw();
+        }
+    }
+}
+
 impl<E: ?Sized + Element> Element for WithScroll<E> {
     fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
         let mut child_size = size;
@@ -84,11 +110,14 @@ impl<E: ?Sized + Element> Element for WithScroll<E> {
             child_size = child_size.without_height();
         }
         self.child.set_size(cx, child_size);
+        self.size = size.fallback(self.child.metrics(cx).size);
+
+        self.scroll(cx, Vec2::ZERO);
     }
 
     fn set_position(&mut self, cx: &ElemCtx, position: Point) {
         self.position = position;
-        self.child.set_position(cx, position + self.scroll_amount);
+        self.scroll(cx, Vec2::ZERO);
     }
 
     #[inline]
@@ -114,31 +143,21 @@ impl<E: ?Sized + Element> Element for WithScroll<E> {
     fn event(&mut self, cx: &ElemCtx, event: &dyn Event) -> EventResult {
         if self.user_input && (self.scroll_x || self.scroll_y) {
             if let Some(event) = event.downcast::<event::WheelInput>() {
-                let delta = match event.delta {
+                let mut delta = match event.delta {
                     MouseScrollDelta::LineDelta(x, y) => {
                         Vec2::new(x as f64, y as f64) * self.line_size
                     }
                     MouseScrollDelta::PixelDelta(delta) => Vec2::new(delta.x, delta.y),
                 };
 
-                let child_metrics = self.child.metrics(cx);
-
-                if self.scroll_x && child_metrics.size.width > self.size.width {
-                    self.scroll_amount.x = (self.scroll_amount.x + delta.x)
-                        .min(0.0)
-                        .max(child_metrics.size.width - self.size.width);
+                if !self.scroll_x {
+                    delta.x = 0.0;
+                }
+                if !self.scroll_y {
+                    delta.y = 0.0;
                 }
 
-                if self.scroll_y && child_metrics.size.height > self.size.height {
-                    self.scroll_amount.y = (self.scroll_amount.y + delta.y)
-                        .min(0.0)
-                        .max(child_metrics.size.height - self.size.height);
-                }
-
-                self.child
-                    .set_position(cx, self.position + self.scroll_amount);
-
-                cx.window().request_redraw();
+                self.scroll(cx, delta);
             }
         }
 

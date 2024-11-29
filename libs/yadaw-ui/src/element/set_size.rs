@@ -69,9 +69,9 @@ impl SetSize {
     #[inline]
     pub fn width(self) -> Option<f64> {
         if self.has_specific_width() {
-            None
-        } else {
             Some(self.width)
+        } else {
+            None
         }
     }
 
@@ -79,9 +79,9 @@ impl SetSize {
     #[inline]
     pub fn height(self) -> Option<f64> {
         if self.has_specific_height() {
-            None
-        } else {
             Some(self.height)
+        } else {
+            None
         }
     }
 
