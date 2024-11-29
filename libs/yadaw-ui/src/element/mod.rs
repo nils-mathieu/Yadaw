@@ -1,7 +1,7 @@
 //! Defines the [`Element`] trait and related types.
 
-mod size_hint;
-pub use self::size_hint::*;
+mod set_size;
+pub use self::set_size::*;
 
 mod elem_ctx;
 pub use self::elem_ctx::*;
@@ -16,16 +16,6 @@ use vello::{kurbo::Point, Scene};
 
 /// Represents an element that can be rendered to the screen.
 pub trait Element {
-    /// Requests information about the sizing constraints of the element.
-    ///
-    /// This method is called by the layout system to determine how to size the element
-    /// within its parent.
-    ///
-    /// # Parameters
-    ///
-    /// * `cx`: The context that is passed along to element methods.
-    fn size_hint(&mut self, cx: &ElemCtx) -> SizeHint;
-
     /// Sets the size of the element.
     ///
     /// After this function has been called, the element should be ready to be rendered at
@@ -134,11 +124,6 @@ pub trait Element {
 
 impl Element for () {
     #[inline]
-    fn size_hint(&mut self, _cx: &ElemCtx) -> SizeHint {
-        SizeHint::EMPTY
-    }
-
-    #[inline]
     fn set_size(&mut self, _cx: &ElemCtx, _size: SetSize) {}
 
     #[inline]
@@ -164,11 +149,6 @@ impl Element for () {
 }
 
 impl<E: ?Sized + Element> Element for Box<E> {
-    #[inline]
-    fn size_hint(&mut self, cx: &ElemCtx) -> SizeHint {
-        (**self).size_hint(cx)
-    }
-
     #[inline]
     fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
         (**self).set_size(cx, size)

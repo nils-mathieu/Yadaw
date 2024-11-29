@@ -1,6 +1,6 @@
 use {
     crate::{
-        element::{ElemCtx, Element, Event, EventResult, Metrics, SetSize, SizeHint},
+        element::{ElemCtx, Element, Event, EventResult, Metrics, SetSize},
         event,
     },
     vello::{
@@ -75,30 +75,15 @@ impl<E> WithScroll<E> {
 }
 
 impl<E: ?Sized + Element> Element for WithScroll<E> {
-    fn size_hint(&mut self, cx: &ElemCtx) -> SizeHint {
-        let mut size_hint = self.child.size_hint(cx);
+    fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
+        let mut child_size = size;
         if self.scroll_x {
-            size_hint.min.width = 0.0;
+            child_size = child_size.without_width();
         }
         if self.scroll_y {
-            size_hint.min.height = 0.0;
+            child_size = child_size.without_height();
         }
-        size_hint
-    }
-
-    fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
-        // let child_hint = self.child.size_hint(cx);
-
-        // let mut child_size = size;
-        // if self.scroll_x {
-        //     child_size.width = child_hint.max.width;
-        // }
-        // if self.scroll_y {
-        //     child_size.height = child_hint.max.height
-        // }
-
-        // self.child.set_size(cx, child_size);
-        todo!();
+        self.child.set_size(cx, child_size);
     }
 
     fn set_position(&mut self, cx: &ElemCtx, position: Point) {

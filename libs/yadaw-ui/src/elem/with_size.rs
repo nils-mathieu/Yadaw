@@ -1,12 +1,9 @@
 use {
     crate::{
         elem::Length,
-        element::{ElemCtx, Element, Event, EventResult, Metrics, SetSize, SizeHint},
+        element::{ElemCtx, Element, Event, EventResult, Metrics, SetSize},
     },
-    vello::{
-        kurbo::{Point, Size},
-        Scene,
-    },
+    vello::{kurbo::Point, Scene},
 };
 
 /// An [`Element`] that restricts the size of its child.
@@ -63,27 +60,7 @@ impl<E> WithSize<E> {
     }
 }
 
-impl<E: ?Sized> WithSize<E> {
-    /// Returns the added [`SizeHint`] of the element.
-    pub fn added_size_hint(&self, cx: &ElemCtx) -> SizeHint {
-        let min_width = self.min_width.resolve(cx);
-        let max_width = self.max_width.resolve(cx);
-        let min_height = self.min_height.resolve(cx);
-        let max_height = self.max_height.resolve(cx);
-
-        SizeHint {
-            min: Size::new(min_width, min_height),
-            max: Size::new(max_width, max_height),
-        }
-    }
-}
-
 impl<E: ?Sized + Element> Element for WithSize<E> {
-    #[inline]
-    fn size_hint(&mut self, cx: &ElemCtx) -> SizeHint {
-        self.child.size_hint(cx).union(&self.added_size_hint(cx))
-    }
-
     #[inline]
     fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
         self.child.set_size(cx, size);

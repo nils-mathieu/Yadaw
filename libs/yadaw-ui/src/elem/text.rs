@@ -3,7 +3,7 @@ pub use parley::Alignment;
 use {
     crate::{
         elem::Length,
-        element::{ElemCtx, Element, Event, EventResult, Metrics, SetSize, SizeHint},
+        element::{ElemCtx, Element, Event, EventResult, Metrics, SetSize},
     },
     parley::{
         FontContext, FontStack, FontStyle, FontWeight, GenericFamily, LayoutContext,
@@ -40,11 +40,6 @@ struct UnstyledText {
     position: Point,
     /// The current size of the text.
     size: SetSize,
-
-    /// The minimum content size of the element.
-    min_content: Size,
-    /// The maximum content size of the element.
-    max_content: Size,
 
     /// The text content of the element.
     text: String,
@@ -119,12 +114,7 @@ impl UnstyledText {
             }
         }
 
-        let width = match self.size {
-            SetSize::Unconstrained => f32::INFINITY,
-            SetSize::Width(width) => width as f32,
-            SetSize::Height(_) => f32::INFINITY,
-            SetSize::Specific(size) => size.width as f32,
-        };
+        let width = self.size.width().map_or(f32::INFINITY, |w| w as f32);
 
         if self.dirty_state >= DirtyState::Lines {
             self.layout
@@ -142,14 +132,6 @@ impl UnstyledText {
         }
 
         self.dirty_state = DirtyState::Clean;
-    }
-
-    /// Returns the size hint of the text element.
-    pub fn size_hint(&mut self, _cx: &ElemCtx) -> SizeHint {
-        SizeHint {
-            min: self.min_content,
-            max: self.max_content,
-        }
     }
 
     /// Sets the size of the text element.
@@ -278,9 +260,7 @@ impl Text<()> {
         Self {
             unstyled: UnstyledText {
                 position: Point::ZERO,
-                min_content: Size::ZERO,
-                max_content: Size::ZERO,
-                size: SetSize::Unconstrained,
+                size: SetSize::unconstrained(),
                 text: String::from(text),
                 alignment: Alignment::Start,
                 break_lines: true,
@@ -414,11 +394,6 @@ impl<S: ?Sized> Text<S> {
 }
 
 impl<S: TextStyle> Element for Text<S> {
-    #[inline]
-    fn size_hint(&mut self, cx: &ElemCtx) -> SizeHint {
-        self.unstyled.size_hint(cx)
-    }
-
     #[inline]
     fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
         self.unstyled.set_size(cx, size, &mut self.style);

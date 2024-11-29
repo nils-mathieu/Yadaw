@@ -4,7 +4,7 @@
 use {
     crate::{
         elem::Length,
-        element::{ElemCtx, Element, Event, EventResult, Metrics, SetSize, SizeHint},
+        element::{ElemCtx, Element, Event, EventResult, Metrics, SetSize},
     },
     vello::{
         kurbo::{Affine, Point, Rect, RoundedRect, RoundedRectRadii, Shape, Size},
@@ -165,21 +165,15 @@ impl<S: ?Sized + ToShape> ShapeElement<S> {
 
 impl<S: ?Sized + ToShape> Element for ShapeElement<S> {
     #[inline]
-    fn size_hint(&mut self, _cx: &ElemCtx) -> SizeHint {
-        SizeHint::ANY
-    }
-
-    #[inline]
     fn set_position(&mut self, _cx: &ElemCtx, position: Point) {
         self.position = position;
     }
 
     #[inline]
     fn set_size(&mut self, _cx: &ElemCtx, size: SetSize) {
-        self.size = match size {
-            SetSize::Specific(size) => size,
-            _ => panic!("ShapeElement does not support having an unconstrained size"),
-        };
+        self.size = size
+            .specific_size()
+            .expect("ShapeElement does not support having an unconstrained size");
     }
 
     #[inline]
@@ -251,11 +245,6 @@ impl<S: Shape, E> WithBackground<S, E> {
 }
 
 impl<S: ToShape, E: ?Sized + Element> Element for WithBackground<S, E> {
-    #[inline]
-    fn size_hint(&mut self, cx: &ElemCtx) -> SizeHint {
-        self.child.size_hint(cx)
-    }
-
     #[inline]
     fn metrics(&mut self, cx: &ElemCtx) -> Metrics {
         self.child.metrics(cx)

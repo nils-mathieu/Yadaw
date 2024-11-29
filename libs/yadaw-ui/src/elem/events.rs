@@ -1,5 +1,5 @@
 use {
-    crate::element::{ElemCtx, Element, Event, EventResult, Metrics, SetSize, SizeHint},
+    crate::element::{ElemCtx, Element, Event, EventResult, Metrics, SetSize},
     std::marker::PhantomData,
     vello::{kurbo::Point, Scene},
 };
@@ -27,11 +27,6 @@ where
     F: FnMut(&mut E, &ElemCtx, &dyn Event) -> EventResult,
     E: Element,
 {
-    #[inline]
-    fn size_hint(&mut self, cx: &ElemCtx) -> SizeHint {
-        self.child.size_hint(cx)
-    }
-
     #[inline]
     fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
         self.child.set_size(cx, size);
@@ -97,11 +92,6 @@ where
     F: FnMut(&mut E, &ElemCtx, &T) -> EventResult,
     E: Element,
 {
-    #[inline]
-    fn size_hint(&mut self, cx: &ElemCtx) -> SizeHint {
-        self.child.size_hint(cx)
-    }
-
     #[inline]
     fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
         self.child.set_size(cx, size);

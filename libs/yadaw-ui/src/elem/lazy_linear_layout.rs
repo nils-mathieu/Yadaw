@@ -1,7 +1,7 @@
 use {
     crate::{
         elem::{linear_layout::Direction, Length},
-        element::{ElemCtx, Element, Event, EventResult, Metrics, SetSize, SizeHint},
+        element::{ElemCtx, Element, Event, EventResult, Metrics, SetSize},
     },
     vello::{
         kurbo::{Point, Size, Vec2},
@@ -107,7 +107,10 @@ where
                 element: (self.make_children)(index),
             });
             let child = &mut self.children.last_mut().unwrap().element;
-            child.set_size(cx, SetSize::Specific(Size::new(child_width, child_height)));
+            child.set_size(
+                cx,
+                SetSize::from_specific(Size::new(child_width, child_height)),
+            );
             child.set_position(cx, self.position + stride_vec2 * index as f64);
         }
     }
@@ -118,22 +121,6 @@ where
     E: Element,
     F: ?Sized + FnMut(usize) -> E,
 {
-    fn size_hint(&mut self, cx: &ElemCtx) -> SizeHint {
-        let child_width = self.child_width.resolve(cx);
-        let child_height = self.child_height.resolve(cx);
-
-        match self.direction {
-            Direction::Horizontal => SizeHint {
-                min: Size::new(0.0, child_height),
-                max: Size::new(f64::INFINITY, child_height),
-            },
-            Direction::Vertical => SizeHint {
-                min: Size::new(child_width, 0.0),
-                max: Size::new(child_width, f64::INFINITY),
-            },
-        }
-    }
-
     fn set_position(&mut self, cx: &ElemCtx, position: Point) {
         self.position = position;
 
@@ -146,29 +133,32 @@ where
     }
 
     fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
-        self.size = match (size, self.direction) {
-            (SetSize::Unconstrained, Direction::Horizontal) => {
-                Size::new(0.0, self.child_height.resolve(cx))
+        match self.direction {
+            Direction::Horizontal => {
+                assert!(
+                    size.has_specific_height(),
+                    "Horizontal LazyLinearLayout does not support having a specific height"
+                );
+
+                let width = size
+                    .width()
+                    .expect("Horizontal LazyLinearLayout does not support unconstrained width");
+
+                self.size = Size::new(width, self.child_height.resolve(cx));
             }
-            (SetSize::Unconstrained, Direction::Vertical) => {
-                Size::new(self.child_width.resolve(cx), 0.0)
+            Direction::Vertical => {
+                assert!(
+                    size.has_specific_width(),
+                    "Vertical LazyLinearLayout does not support having a specific width"
+                );
+
+                let height = size
+                    .height()
+                    .expect("Vertical LazyLinearLayout does not support unconstrained height");
+
+                self.size = Size::new(self.child_width.resolve(cx), height);
             }
-            (SetSize::Width(_), Direction::Horizontal) => {
-                panic!("Horizontal LazyLinearLayout does not support having a specific width");
-            }
-            (SetSize::Width(width), Direction::Vertical) => {
-                Size::new(self.child_width.resolve(cx), width)
-            }
-            (SetSize::Height(height), Direction::Horizontal) => {
-                Size::new(height, self.child_height.resolve(cx))
-            }
-            (SetSize::Height(_), Direction::Vertical) => {
-                panic!("Vertical LazyLinearLayout does not support having a specific height");
-            }
-            (SetSize::Specific(_), _) => {
-                panic!("LazyLinearLayout does not support having a specific size");
-            }
-        };
+        }
 
         self.refresh_children(cx, &mut |_, _| {});
     }

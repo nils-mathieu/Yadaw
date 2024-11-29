@@ -183,7 +183,7 @@ impl WindowState {
             let elem_ctx = self.elem_ctx();
 
             if dirty_state >= DirtyState::Layout {
-                root.set_size(&elem_ctx, SetSize::Specific(elem_ctx.parent_size()));
+                root.set_size(&elem_ctx, SetSize::from_specific(elem_ctx.parent_size()));
                 root.set_position(&elem_ctx, Point::ZERO);
             }
 
