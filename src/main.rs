@@ -2,14 +2,15 @@
 
 use yadaw_ui::{
     dpi::PhysicalSize,
-    elem::{self, ElementExt},
-    element::{ElemCtx, Element, Event, EventResult},
+    elem,
+    element::{ElemCtx, Event, EventResult},
     event::{self, NamedKey},
     parley::FontContext,
-    peniko::Color,
     winit::window::WindowAttributes,
-    App, CursorIcon,
+    App,
 };
+
+mod ui;
 
 fn main() {
     yadaw_ui::runtime::run(|app| {
@@ -19,7 +20,7 @@ fn main() {
 
         window.set_root_element(elem::HookEvents::new(
             |_, cx, ev| global_event_handler(cx, ev),
-            app_element(),
+            self::ui::app(),
         ));
     });
 }
@@ -37,51 +38,6 @@ fn global_event_handler(cx: &ElemCtx, event: &dyn Event) -> EventResult {
     }
 
     EventResult::Ignored
-}
-
-/// Builds the application tree.
-fn app_element() -> impl Element {
-    elem::LinearLayout::default()
-        .with_vertical()
-        .with_align_start()
-        .with_justify_center()
-        .with_gap(elem::Length::Pixels(20.0))
-        .with_child(rect(Color::GREEN, 100.0, 200.0).into_dyn_element())
-        .with_child(
-            elem::WithCursor::new(
-                elem::WithSize::new(
-                    elem::ShapeElement::<elem::shapes::RoundedRectangle>::default()
-                        .with_radius(elem::Length::Pixels(10.0))
-                        .with_brush(Color::RED)
-                        .with_child(
-                            elem::WithMargin::new(
-                                elem::WithCursor::new(
-                                    elem::ShapeElement::<elem::shapes::RoundedRectangle>::default()
-                                        .with_radius(elem::Length::Pixels(10.0))
-                                        .with_brush(Color::BLUE),
-                                )
-                                .with_cursor(CursorIcon::Progress),
-                            )
-                            .with_margin(elem::Length::Pixels(30.0)),
-                        ),
-                )
-                .with_width(elem::Length::Pixels(150.0))
-                .with_height(elem::Length::Pixels(150.0)),
-            )
-            .with_cursor(CursorIcon::Pointer)
-            .into_dyn_element(),
-        )
-        .with_child(rect(Color::GREEN, 200.0, 100.0).into_dyn_element())
-}
-
-fn rect(color: Color, width: f64, height: f64) -> impl Element {
-    elem::WithSize::new(
-        elem::ShapeElement::<elem::shapes::RoundedRectangle>::default()
-            .with_brush(color)
-            .with_radius(elem::Length::Pixels(10.0)),
-    )
-    .with_width(elem::Length::Pixels(width))
-    .with_height(elem::Length::Pixels(height))
 }
 
 /// Builds the [`WindowAttributes`] that will be used to create the main window

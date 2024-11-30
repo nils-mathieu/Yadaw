@@ -58,6 +58,18 @@ pub struct Child<E: ?Sized> {
     /// The computed offset of the child element.
     offset: Vec2,
 
+    /// The amount of growth that this element should receive
+    /// when the layout is stretched along the main axis.
+    ///
+    /// Negative values mean that the element should not grow and instead, use its
+    /// natural size (unconstrained layout).
+    pub grow: f64,
+
+    /// The self-alignment of the child element.
+    ///
+    /// If set, this overrides the alignment of the parent layout.
+    pub align_self: Option<Align>,
+
     /// The child element.
     pub element: E,
 }
@@ -67,8 +79,23 @@ impl<E> Child<E> {
     pub fn new(element: E) -> Self {
         Self {
             offset: Vec2::ZERO,
+            grow: -1.0,
+            align_self: None,
             element,
         }
+    }
+
+    /// Sets the amount of growth that this element should receive.
+    pub fn with_grow(mut self, grow: f64) -> Self {
+        debug_assert!(grow >= 0.0, "Grow factor must be non-negative");
+        self.grow = grow;
+        self
+    }
+
+    /// Sets the self-alignment of the child element.
+    pub fn with_align_self(mut self, align_self: Align) -> Self {
+        self.align_self = Some(align_self);
+        self
     }
 }
 
@@ -112,8 +139,8 @@ pub struct LinearLayout<E> {
 
 impl<E> LinearLayout<E> {
     /// Adds a child element to the layout.
-    pub fn with_child(mut self, child: E) -> Self {
-        self.children.push(Child::new(child));
+    pub fn with_child(mut self, child: impl Into<Child<E>>) -> Self {
+        self.children.push(child.into());
         self
     }
 
@@ -246,24 +273,37 @@ fn dyn_set_size(
 
     let gap = gap.resolve(&child_cx);
 
-    let mut child_set_size = size;
+    let mut total_grow: f64 = 0.0;
+    let mut has_growth: usize = 0;
 
-    child_set_size = match direction {
-        Direction::Horizontal => child_set_size.without_height(),
-        Direction::Vertical => child_set_size.without_width(),
-    };
-
-    if align != Align::Stretch {
-        child_set_size = match direction {
-            Direction::Horizontal => child_set_size.without_width(),
-            Direction::Vertical => child_set_size.without_height(),
+    children.with_children(&mut |child| {
+        if child.grow.is_sign_positive() {
+            has_growth += 1;
+            total_grow += child.grow;
         }
-    }
+    });
 
     let mut children_main_length: f64 = 0.0;
     let mut children_cross_length: f64 = 0.0;
 
+    let mut child_set_size = size;
+    match direction {
+        Direction::Horizontal => child_set_size = child_set_size.without_height(),
+        Direction::Vertical => child_set_size = child_set_size.without_width(),
+    }
+    if align != Align::Stretch {
+        match direction {
+            Direction::Horizontal => child_set_size = child_set_size.without_width(),
+            Direction::Vertical => child_set_size = child_set_size.without_height(),
+        }
+    }
+
     children.with_children(&mut |child| {
+        // We'll deal with grow factor later in a second pass.
+        if child.grow.is_sign_positive() {
+            return;
+        }
+
         child.element.set_size(&child_cx, child_set_size);
         let child_metrics = child.element.metrics(&child_cx);
 
@@ -279,7 +319,44 @@ fn dyn_set_size(
         }
     });
 
-    if children_count != 0 {
+    if has_growth != 0 {
+        let mut growth_factor = match direction {
+            Direction::Horizontal => {
+                let width = size.width().expect(
+                    "Horizontal LinerLayout with a grow factor cannot have an unconstrained width",
+                );
+                let remaining_space = width - children_main_length - gap * (has_growth - 1) as f64;
+                children_main_length = width;
+                remaining_space / total_grow
+            }
+            Direction::Vertical => {
+                let height = size.height().expect(
+                    "Vertical LinerLayout with a grow factor cannot have an unconstrained height",
+                );
+                let remaining_space = height - children_main_length - gap * (has_growth - 1) as f64;
+                children_main_length = height;
+                remaining_space / total_grow
+            }
+        };
+
+        growth_factor = growth_factor.max(0.0);
+
+        children.with_children(&mut |child| {
+            // We've dealt with children with no growth factor is the previous loop.
+            if child.grow.is_sign_negative() {
+                return;
+            }
+
+            let child_set_size = match direction {
+                Direction::Horizontal => child_set_size.with_width(growth_factor * child.grow),
+                Direction::Vertical => child_set_size.with_height(growth_factor * child.grow),
+            };
+
+            child.element.set_size(&child_cx, child_set_size);
+        });
+    }
+
+    if children_count != 0 && has_growth == 0 {
         children_main_length -= gap;
     }
 
@@ -313,7 +390,7 @@ fn dyn_set_size(
             Direction::Vertical => (child_metrics.size.height, child_metrics.size.width),
         };
 
-        let child_cross_offset = match align {
+        let child_cross_offset = match child.align_self.unwrap_or(align) {
             Align::Start => 0.0,
             Align::Center => (parent_cross_length - child_cross_length) * 0.5,
             Align::End => parent_cross_length - child_cross_length,

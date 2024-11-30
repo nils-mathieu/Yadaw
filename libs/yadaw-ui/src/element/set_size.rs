@@ -67,6 +67,22 @@ impl SetSize {
         }
     }
 
+    /// Sets the width constraint.
+    pub fn with_width(mut self, width: f64) -> Self {
+        assert!(width.is_sign_positive());
+
+        self.width = width;
+        self
+    }
+
+    /// Sets the height constraint.
+    pub fn with_height(mut self, height: f64) -> Self {
+        assert!(height.is_sign_positive());
+
+        self.height = height;
+        self
+    }
+
     /// Returns whether the width constraint is specific.
     #[inline]
     pub fn has_specific_width(self) -> bool {
