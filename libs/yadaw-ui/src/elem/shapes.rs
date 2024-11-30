@@ -93,9 +93,6 @@ pub struct ShapeElement<S: ?Sized> {
     /// The transformation to apply to the brush.
     pub brush_transform: Option<Affine>,
 
-    /// Whether to clip the shape to the bounds of the element.
-    pub clip_child: bool,
-
     /// The shape to draw.
     pub shape: S,
 }
@@ -113,16 +110,28 @@ impl<S> ShapeElement<S> {
         self
     }
 
-    /// Whether to clip the shape to the bounds of the element.
-    pub fn with_clip_child(mut self, clip_child: bool) -> Self {
-        self.clip_child = clip_child;
-        self
+    /// Adds a child element to the shape.
+    pub fn with_child<E>(self, child: E) -> WithBackground<S, E> {
+        WithBackground {
+            background: self,
+            clip_child: false,
+            child,
+        }
     }
 }
 
 impl ShapeElement<RoundedRectangle> {
     /// Sets the corner radius of the shape.
     pub fn with_corner_radius(mut self, radius: Length) -> Self {
+        self.shape.top_left = radius.clone();
+        self.shape.top_right = radius.clone();
+        self.shape.bottom_left = radius.clone();
+        self.shape.bottom_right = radius;
+        self
+    }
+
+    /// Sets the radius of all corners.
+    pub fn with_radius(mut self, radius: Length) -> Self {
         self.shape.top_left = radius.clone();
         self.shape.top_right = radius.clone();
         self.shape.bottom_left = radius.clone();
@@ -189,10 +198,6 @@ impl<S: ?Sized + ToShape> Element for ShapeElement<S> {
     fn render(&mut self, cx: &ElemCtx, scene: &mut Scene) {
         let shape = self.to_shape(cx);
 
-        if self.clip_child {
-            scene.push_layer(BlendMode::default(), 1.0, Affine::IDENTITY, &shape);
-        }
-
         scene.fill(
             Fill::NonZero,
             Affine::IDENTITY,
@@ -200,10 +205,6 @@ impl<S: ?Sized + ToShape> Element for ShapeElement<S> {
             self.brush_transform,
             &shape,
         );
-
-        if self.clip_child {
-            scene.pop_layer();
-        }
     }
 
     #[inline]
@@ -221,14 +222,17 @@ impl<S: ?Sized + ToShape> Element for ShapeElement<S> {
 pub struct WithBackground<S, E: ?Sized> {
     /// The background shape to draw.
     pub background: ShapeElement<S>,
+    /// Whether to clip the shape to the bounds of the element.
+    pub clip_child: bool,
     /// The child element.
     pub child: E,
 }
 
 impl<S: Shape, E> WithBackground<S, E> {
-    /// Creates a new [`WithBackground`] with the provided background shape and child element.
-    pub fn new(background: ShapeElement<S>, child: E) -> Self {
-        Self { background, child }
+    /// Sets whether to clip the shape to the bounds of the element.
+    pub fn with_clip_child(mut self, clip_child: bool) -> Self {
+        self.clip_child = clip_child;
+        self
     }
 
     /// Sets the brush to use for drawing the background shape.
@@ -251,26 +255,67 @@ impl<S: ToShape, E: ?Sized + Element> Element for WithBackground<S, E> {
     }
 
     fn render(&mut self, cx: &ElemCtx, scene: &mut Scene) {
+        let child_cx = cx.inherit_clip_rect(Rect::from_origin_size(
+            self.background.position,
+            self.background.size,
+        ));
+
         self.background.render(cx, scene);
-        self.child.render(cx, scene);
+
+        if self.clip_child {
+            scene.push_layer(
+                BlendMode::default(),
+                1.0,
+                Affine::IDENTITY,
+                &self.background.to_shape(cx),
+            );
+        }
+
+        self.child.render(&child_cx, scene);
+
+        if self.clip_child {
+            scene.pop_layer();
+        }
     }
 
     fn hit_test(&mut self, cx: &ElemCtx, point: Point) -> bool {
-        self.child.hit_test(cx, point) || self.background.hit_test(cx, point)
+        let child_cx = cx.inherit_clip_rect(Rect::from_origin_size(
+            self.background.position,
+            self.background.size,
+        ));
+
+        self.child.hit_test(&child_cx, point) || self.background.hit_test(cx, point)
     }
 
     #[inline]
     fn event(&mut self, cx: &ElemCtx, event: &dyn Event) -> EventResult {
-        self.child.event(cx, event)
+        let child_cx = cx.inherit_clip_rect(Rect::from_origin_size(
+            self.background.position,
+            self.background.size,
+        ));
+
+        self.child.event(&child_cx, event)
     }
 
     #[inline]
     fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
-        self.child.set_size(cx, size);
+        let child_cx = cx.inherit_clip_rect(Rect::from_origin_size(
+            self.background.position,
+            self.background.size,
+        ));
+
+        self.child.set_size(&child_cx, size);
+        self.background.size = size.fallback(self.child.metrics(&child_cx).size);
     }
 
     #[inline]
     fn set_position(&mut self, cx: &ElemCtx, position: Point) {
-        self.child.set_position(cx, position);
+        let child_cx = cx.inherit_clip_rect(Rect::from_origin_size(
+            self.background.position,
+            self.background.size,
+        ));
+
+        self.child.set_position(&child_cx, position);
+        self.background.position = position;
     }
 }

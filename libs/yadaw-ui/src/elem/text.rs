@@ -78,8 +78,10 @@ impl UnstyledText {
 
     /// Sets the size of the text element.
     pub fn set_size(&mut self, _cx: &ElemCtx, size: SetSize, _style: &mut dyn TextStyle) {
-        self.size = size;
-        self.add_dirt(DirtyState::Lines);
+        if self.size != size {
+            self.size = size;
+            self.add_dirt(DirtyState::Lines);
+        }
     }
 
     /// Builds the layout of the text.

@@ -46,6 +46,10 @@ pub struct AppState {
     /// The reference counted pointers here are supposed to be the only one with strong references,
     /// so that the windows can be destroyed easily by dropping that reference.
     windows: RefCell<HashMap<WindowId, Rc<WindowState>, FxBuildHasher>>,
+    /// The current instant in time of the event loop.
+    ///
+    /// This does not change for a complete iteration.
+    now: Cell<Instant>,
 
     /// The list of functions that need to be called at a specific time.
     #[allow(clippy::type_complexity)]
@@ -64,6 +68,7 @@ impl AppState {
             windows: RefCell::new(HashMap::default()),
             timed_callbacks: RefCell::new(Vec::new()),
             ui_resources: RefCell::new(UiResources::default()),
+            now: Cell::new(Instant::now()),
         })
     }
 
@@ -231,5 +236,17 @@ impl AppState {
     #[inline]
     pub fn ui_resources(&self) -> &RefCell<UiResources> {
         &self.ui_resources
+    }
+
+    /// Sets the current instant of the event loop.
+    #[inline]
+    pub fn update_now(&self) {
+        self.now.set(Instant::now());
+    }
+
+    /// Returns the current instant of the event loop.
+    #[inline]
+    pub fn now(&self) -> Instant {
+        self.now.get()
     }
 }

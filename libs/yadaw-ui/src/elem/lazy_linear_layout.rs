@@ -104,11 +104,16 @@ where
     ///
     /// - `update_children`: A function to be called once the hidden elements have been removed,
     ///   but before the new ones are added.
-    fn refresh_children(&mut self, cx: &ElemCtx, update_children: &mut dyn FnMut(&mut Self, Vec2)) {
+    fn refresh_children(
+        &mut self,
+        cx: &ElemCtx,
+        child_cx: &ElemCtx,
+        update_children: &mut dyn FnMut(&mut Self, Vec2),
+    ) {
         let gap = self.gap.resolve(cx);
 
-        let child_width = self.child_width.resolve(cx);
-        let child_height = self.child_height.resolve(cx);
+        let child_width = self.child_width.resolve(child_cx);
+        let child_height = self.child_height.resolve(child_cx);
 
         let stride = match self.direction {
             Direction::Horizontal => child_width + gap,
@@ -169,18 +174,12 @@ where
     E: Element,
     F: ?Sized + FnMut(usize) -> E,
 {
-    fn set_position(&mut self, cx: &ElemCtx, position: Point) {
-        self.position = position;
-
-        self.refresh_children(cx, &mut |this, stride| {
-            for child in &mut this.children {
-                let pos = position + stride * child.index as f64;
-                child.element.set_position(cx, pos);
-            }
-        });
-    }
-
     fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
+        let child_cx = cx.inherit_parent_size(size.or_infinity());
+
+        let child_width = self.child_width.resolve(&child_cx);
+        let child_height = self.child_height.resolve(&child_cx);
+
         match self.direction {
             Direction::Horizontal => {
                 assert!(
@@ -190,7 +189,7 @@ where
 
                 let width = size.width().unwrap_or(f64::INFINITY);
 
-                self.size = Size::new(width, self.child_height.resolve(cx));
+                self.size = Size::new(width, child_height);
             }
             Direction::Vertical => {
                 assert!(
@@ -200,11 +199,31 @@ where
 
                 let height = size.height().unwrap_or(f64::INFINITY);
 
-                self.size = Size::new(self.child_width.resolve(cx), height);
+                self.size = Size::new(child_width, height);
             }
         }
 
-        self.refresh_children(cx, &mut |_, _| {});
+        self.refresh_children(cx, &child_cx, &mut |this, _| {
+            for child in &mut this.children {
+                child.element.set_size(
+                    cx,
+                    SetSize::from_specific(Size::new(child_width, child_height)),
+                );
+            }
+        });
+    }
+
+    fn set_position(&mut self, cx: &ElemCtx, position: Point) {
+        let child_cx = cx.inherit_parent_size(self.size);
+
+        self.position = position;
+
+        self.refresh_children(cx, &child_cx, &mut |this, stride| {
+            for child in &mut this.children {
+                let pos = position + stride * child.index as f64;
+                child.element.set_position(cx, pos);
+            }
+        });
     }
 
     #[inline]
@@ -217,20 +236,26 @@ where
     }
 
     fn render(&mut self, cx: &ElemCtx, scene: &mut Scene) {
+        let child_cx = cx.inherit_parent_size(self.size);
+
         for child in &mut self.children {
-            child.element.render(cx, scene);
+            child.element.render(&child_cx, scene);
         }
     }
 
     fn hit_test(&mut self, cx: &ElemCtx, point: Point) -> bool {
+        let child_cx = cx.inherit_parent_size(self.size);
+
         self.children
             .iter_mut()
-            .any(|child| child.element.hit_test(cx, point))
+            .any(|child| child.element.hit_test(&child_cx, point))
     }
 
     fn event(&mut self, cx: &ElemCtx, event: &dyn Event) -> EventResult {
+        let child_cx = cx.inherit_parent_size(self.size);
+
         for child in &mut self.children {
-            if child.element.event(cx, event).is_handled() {
+            if child.element.event(&child_cx, event).is_handled() {
                 return EventResult::Handled;
             }
         }

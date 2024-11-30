@@ -8,7 +8,6 @@ use {
         cell::Cell,
         mem::ManuallyDrop,
         rc::{Rc, Weak},
-        time::Instant,
     },
     vello::{
         kurbo::{Point, Size},
@@ -118,7 +117,6 @@ impl WindowState {
             clip_rect: size.to_rect(),
             parent_size: size,
             scale_factor: self.scale_factor.get(),
-            now: Instant::now(),
             window: Window::from_state(Rc::downgrade(self)),
             app: App::from_state(self.app.clone()),
         }

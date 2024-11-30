@@ -38,6 +38,8 @@ pub trait Element {
     /// This method is called by the layout system to position the element within its parent
     /// after the size has been set.
     ///
+    /// This function should be called *after* [`set_size`] has been called.
+    ///
     /// # Parameters
     ///
     /// * `cx`: The context that is passed along to element methods.

@@ -163,6 +163,7 @@ impl ApplicationHandler<UiEvent> for WinitApp<'_> {
 
     fn new_events(&mut self, el: &ActiveEventLoop, _cause: StartCause) {
         self.app_state.with_active_event_loop(el, || {
+            self.app_state.update_now();
             self.app_state.dispatch_callbacks();
         });
     }

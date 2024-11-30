@@ -77,6 +77,14 @@ impl App {
         self.state().request_callback(at, b);
     }
 
+    /// Returns the current event loop instant.
+    ///
+    /// This does not change during the complete event loop iteration.
+    #[track_caller]
+    pub fn now(&self) -> Instant {
+        self.state().now()
+    }
+
     /// Calls the provided function with the [`UiResources`] instance.
     #[track_caller]
     pub fn with_resources_mut<R>(&self, f: impl FnOnce(&mut UiResources) -> R) -> R {

@@ -22,7 +22,19 @@ impl SetSize {
         }
     }
 
+    #[track_caller]
+    pub fn new(width: Option<f64>, height: Option<f64>) -> Self {
+        assert!(width.is_none_or(|w| w.is_sign_positive()));
+        assert!(height.is_none_or(|h| h.is_sign_positive()));
+
+        Self {
+            width: width.unwrap_or(-1.0),
+            height: height.unwrap_or(-1.0),
+        }
+    }
+
     /// Creates a new [`SetSize`] instance with the provided constraints.
+    #[track_caller]
     pub fn from_specific(size: Size) -> Self {
         debug_assert!(size.width.is_sign_positive());
         debug_assert!(size.height.is_sign_positive());
@@ -34,6 +46,7 @@ impl SetSize {
     }
 
     /// Creates a new [`SetSize`] instance with the provided constraints.
+    #[track_caller]
     pub fn from_width(width: f64) -> Self {
         debug_assert!(width.is_sign_positive());
 
@@ -44,6 +57,7 @@ impl SetSize {
     }
 
     /// Creates a new [`SetSize`] instance with the provided constraints.
+    #[track_caller]
     pub fn from_height(height: f64) -> Self {
         debug_assert!(height.is_sign_positive());
 
@@ -120,5 +134,36 @@ impl SetSize {
     pub fn without_height(mut self) -> Self {
         self.height = -1.0;
         self
+    }
+
+    /// Returns a [`Size`] that represents the constraints stored in this [`SetSize`] instance.
+    ///
+    /// Unconstrained dimensions are returned as `f64::INFINITY`.
+    pub fn or_infinity(self) -> Size {
+        Size {
+            width: self.width().unwrap_or(f64::INFINITY),
+            height: self.height().unwrap_or(f64::INFINITY),
+        }
+    }
+
+    /// Returns a [`SetSize`] that has the current constraints, or the constraints of `other` if
+    /// they are more specific.
+    pub fn or(self, other: Self) -> Self {
+        Self::new(
+            self.width().or(other.width()),
+            self.height().or(other.height()),
+        )
+    }
+}
+
+impl PartialEq for SetSize {
+    fn eq(&self, other: &Self) -> bool {
+        self.width() == other.width() && self.height() == other.height()
+    }
+}
+
+impl From<Size> for SetSize {
+    fn from(size: Size) -> Self {
+        Self::from_specific(size)
     }
 }

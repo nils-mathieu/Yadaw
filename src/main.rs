@@ -41,20 +41,24 @@ fn global_event_handler(cx: &ElemCtx, event: &dyn Event) -> EventResult {
 
 /// Builds the application tree.
 fn app_element() -> impl Element {
-    elem::WithScroll::new(
-        elem::LazyLinearLayout::new(|index| {
-            elem::Text::new(format!("Item {index}"))
-                .with_basic_style()
-                .with_font_family("nunito sans-serif")
-                .with_brush(Color::BLACK.into())
-                .with_font_size(elem::Length::Pixels(24.0))
-        })
-        .with_child_width(elem::Length::ParentWidth(1.0))
-        .with_child_height(elem::Length::Pixels(24.0))
-        .with_direction_vertical(),
+    elem::LinearLayout::default()
+        .with_vertical()
+        .with_align_start()
+        .with_justify_center()
+        .with_gap(elem::Length::Pixels(20.0))
+        .with_child(rect(Color::GREEN, 100.0, 200.0))
+        .with_child(rect(Color::GREEN, 200.0, 200.0))
+        .with_child(rect(Color::GREEN, 200.0, 100.0))
+}
+
+fn rect(color: Color, width: f64, height: f64) -> impl Element {
+    elem::WithSize::new(
+        elem::ShapeElement::<elem::shapes::RoundedRectangle>::default()
+            .with_brush(color)
+            .with_radius(elem::Length::Pixels(10.0)),
     )
-    .with_scroll_x(false)
-    .with_controls()
+    .with_width(elem::Length::Pixels(width))
+    .with_height(elem::Length::Pixels(height))
 }
 
 /// Builds the [`WindowAttributes`] that will be used to create the main window

@@ -1,6 +1,5 @@
 use {
     crate::{App, Window},
-    std::time::Instant,
     vello::kurbo::{Rect, Size},
 };
 
@@ -19,9 +18,6 @@ pub struct ElemCtx {
     /// The current scale factor of the element.
     pub(crate) scale_factor: f64,
 
-    /// The current instant in time.
-    pub(crate) now: Instant,
-
     /// The window handle that the element is a part of.
     pub(crate) window: Window,
 
@@ -37,7 +33,6 @@ impl ElemCtx {
             clip_rect,
             parent_size,
             scale_factor,
-            now: self.now,
             window: self.window.clone(),
             app: self.app.clone(),
         }
@@ -50,7 +45,6 @@ impl ElemCtx {
             clip_rect: self.clip_rect,
             parent_size,
             scale_factor: self.scale_factor,
-            now: self.now,
             window: self.window.clone(),
             app: self.app.clone(),
         }
@@ -63,7 +57,6 @@ impl ElemCtx {
             clip_rect,
             parent_size: self.parent_size,
             scale_factor: self.scale_factor,
-            now: self.now,
             window: self.window.clone(),
             app: self.app.clone(),
         }
@@ -76,7 +69,6 @@ impl ElemCtx {
             clip_rect: self.clip_rect,
             parent_size: self.parent_size,
             scale_factor,
-            now: self.now,
             window: self.window.clone(),
             app: self.app.clone(),
         }
@@ -102,12 +94,6 @@ impl ElemCtx {
     #[inline]
     pub fn scale_factor(&self) -> f64 {
         self.scale_factor
-    }
-
-    /// Returns the current instant in time.
-    #[inline]
-    pub fn now(&self) -> Instant {
-        self.now
     }
 
     /// Returns the window handle that the element is a part of.

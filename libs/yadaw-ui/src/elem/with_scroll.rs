@@ -206,9 +206,9 @@ where
                 self.inner.set_scroll_amount(cx, self.target_scroll_amount);
             } else {
                 let dt = self.last_instant.map_or(0.0, |instant| {
-                    cx.now().duration_since(instant).as_secs_f64()
+                    cx.app().now().duration_since(instant).as_secs_f64()
                 });
-                self.last_instant = Some(cx.now());
+                self.last_instant = Some(cx.app().now());
 
                 self.inner.set_scroll_amount(
                     cx,
