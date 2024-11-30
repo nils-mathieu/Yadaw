@@ -50,10 +50,11 @@ fn app_element() -> impl Element {
                 .with_font_size(elem::Length::Pixels(24.0))
         })
         .with_child_width(elem::Length::ParentWidth(1.0))
-        .with_child_height(elem::Length::Pixels(50.0))
+        .with_child_height(elem::Length::Pixels(24.0))
         .with_direction_vertical(),
     )
     .with_scroll_x(false)
+    .with_controls()
 }
 
 /// Builds the [`WindowAttributes`] that will be used to create the main window

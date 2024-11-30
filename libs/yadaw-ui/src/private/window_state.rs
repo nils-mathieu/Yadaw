@@ -8,6 +8,7 @@ use {
         cell::Cell,
         mem::ManuallyDrop,
         rc::{Rc, Weak},
+        time::Instant,
     },
     vello::{
         kurbo::{Point, Size},
@@ -117,6 +118,7 @@ impl WindowState {
             clip_rect: size.to_rect(),
             parent_size: size,
             scale_factor: self.scale_factor.get(),
+            now: Instant::now(),
             window: Window::from_state(Rc::downgrade(self)),
             app: App::from_state(self.app.clone()),
         }
@@ -197,6 +199,9 @@ impl WindowState {
             );
         });
     }
+
+    /// Notifies the window state that the event loop iteration has ended.
+    pub fn notify_end_of_event_loop_iteration(&self) {}
 
     /// Sets the root element of the window.
     pub fn set_root_element(&self, root: Box<dyn Element>) {

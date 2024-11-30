@@ -162,6 +162,10 @@ impl AppState {
         self.windows
             .borrow_mut()
             .retain(|_, state| !state.closing());
+
+        for window in self.windows.borrow().values() {
+            window.notify_end_of_event_loop_iteration();
+        }
     }
 
     /// Returns the number of windows that are currently managed by the UI framework.

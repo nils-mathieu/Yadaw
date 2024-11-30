@@ -3,6 +3,7 @@ use {
         element::{ElemCtx, Element, Event, EventResult, Metrics, SetSize},
         event,
     },
+    std::time::Instant,
     vello::{
         kurbo::{Point, Size, Vec2},
         Scene,
@@ -21,11 +22,6 @@ pub struct WithScroll<E: ?Sized> {
     pub scroll_x: bool,
     /// Whether the element should be able to scroll vertically.
     pub scroll_y: bool,
-    /// The size of the lines (when lines are used to scroll).
-    pub line_size: f64,
-
-    /// Whether the element should use the user's input to scroll.
-    pub user_input: bool,
 
     /// The amount of scroll in each direction.
     pub scroll_amount: Vec2,
@@ -42,17 +38,9 @@ impl<E> WithScroll<E> {
             position: Point::ZERO,
             scroll_x: true,
             scroll_y: true,
-            user_input: true,
             scroll_amount: Vec2::ZERO,
-            line_size: 10.0,
             child,
         }
-    }
-
-    /// Sets whether the element should use the user's input to scroll.
-    pub fn with_user_input(mut self, user_input: bool) -> Self {
-        self.user_input = user_input;
-        self
     }
 
     /// Sets whether the element should be able to scroll vertically.
@@ -67,36 +55,51 @@ impl<E> WithScroll<E> {
         self
     }
 
-    /// Sets the size of the lines (when lines are used to scroll).
-    pub fn with_line_size(mut self, line_size: f64) -> Self {
-        self.line_size = line_size;
-        self
+    /// Sets the child element that should be scrollable.
+    pub fn with_controls(self) -> WithScrollAndControls<E> {
+        WithScrollAndControls {
+            target_scroll_amount: self.scroll_amount,
+            smooth_scroll_decay: 10.0,
+            line_size: 100.0,
+            last_instant: None,
+            inner: self,
+        }
     }
 }
 
 impl<E: ?Sized + Element> WithScroll<E> {
     /// Clamps the scroll amount to the bounds of the child element.
-    fn scroll(&mut self, cx: &ElemCtx, delta: Vec2) {
-        let child_metrics = self.child.metrics(cx);
+    pub fn set_scroll_amount(&mut self, cx: &ElemCtx, new: Vec2) {
         let old_scroll = self.scroll_amount;
-
-        if self.scroll_x {
-            self.scroll_amount.x = (self.scroll_amount.x + delta.x)
-                .max(child_metrics.size.width - self.size.width)
-                .min(0.0);
-        }
-
-        if self.scroll_y {
-            self.scroll_amount.y = (self.scroll_amount.y + delta.y)
-                .max(self.size.height - child_metrics.size.height)
-                .min(0.0);
-        }
-
+        self.scroll_amount = self.clamp_scroll_amount(new, cx);
         if old_scroll != self.scroll_amount {
             self.child
                 .set_position(cx, self.position + self.scroll_amount);
             cx.window().request_redraw();
         }
+    }
+
+    /// Clamps the provided scroll amount to the bounds of the child element.
+    ///
+    /// This function does not modify the scroll amount of the element.
+    fn clamp_scroll_amount(&mut self, mut scroll_amount: Vec2, cx: &ElemCtx) -> Vec2 {
+        let child_metrics = self.child.metrics(cx);
+
+        if self.scroll_x {
+            scroll_amount.x = scroll_amount
+                .x
+                .max(child_metrics.size.width - self.size.width)
+                .min(0.0);
+        }
+
+        if self.scroll_y {
+            scroll_amount.y = scroll_amount
+                .y
+                .max(self.size.height - child_metrics.size.height)
+                .min(0.0);
+        }
+
+        scroll_amount
     }
 }
 
@@ -112,12 +115,12 @@ impl<E: ?Sized + Element> Element for WithScroll<E> {
         self.child.set_size(cx, child_size);
         self.size = size.fallback(self.child.metrics(cx).size);
 
-        self.scroll(cx, Vec2::ZERO);
+        self.set_scroll_amount(cx, self.scroll_amount);
     }
 
     fn set_position(&mut self, cx: &ElemCtx, position: Point) {
         self.position = position;
-        self.scroll(cx, Vec2::ZERO);
+        self.set_scroll_amount(cx, self.scroll_amount);
     }
 
     #[inline]
@@ -141,26 +144,125 @@ impl<E: ?Sized + Element> Element for WithScroll<E> {
 
     #[inline]
     fn event(&mut self, cx: &ElemCtx, event: &dyn Event) -> EventResult {
-        if self.user_input && (self.scroll_x || self.scroll_y) {
+        self.child.event(cx, event)
+    }
+}
+
+/// A wrapper around [`WithScroll`] that also adds smooth scrolling and scroll controls.
+pub struct WithScrollAndControls<E: ?Sized> {
+    /// The amount of smooth scrolling that should be applied.
+    pub smooth_scroll_decay: f64,
+    /// The size of a single line of scrolling.
+    pub line_size: f64,
+
+    /// The target (unsmoothed) scroll offset.
+    target_scroll_amount: Vec2,
+    /// If the scroll amount is currently being animated, the last instant of the render
+    /// callback.
+    last_instant: Option<Instant>,
+
+    /// The wrapped scrollable element.
+    pub inner: WithScroll<E>,
+}
+
+impl<E> WithScrollAndControls<E> {
+    /// Sets the amount of smooth scrolling that should be applied.
+    pub fn with_smooth_scroll_decay(mut self, decay: f64) -> Self {
+        self.smooth_scroll_decay = decay;
+        self
+    }
+
+    /// Sets the size of a single line of scrolling.
+    pub fn with_line_size(mut self, line_size: f64) -> Self {
+        self.line_size = line_size;
+        self
+    }
+}
+
+impl<E> Element for WithScrollAndControls<E>
+where
+    E: ?Sized + Element,
+{
+    #[inline]
+    fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
+        self.inner.set_size(cx, size);
+    }
+
+    #[inline]
+    fn set_position(&mut self, cx: &ElemCtx, position: Point) {
+        self.inner.set_position(cx, position);
+    }
+
+    #[inline]
+    fn metrics(&mut self, cx: &ElemCtx) -> Metrics {
+        self.inner.metrics(cx)
+    }
+
+    #[inline]
+    fn render(&mut self, cx: &ElemCtx, scene: &mut Scene) {
+        if self.target_scroll_amount != self.inner.scroll_amount {
+            let dist = self.target_scroll_amount - self.inner.scroll_amount;
+            if dist.x.abs() < 0.5 && dist.y.abs() < 0.5 {
+                self.inner.set_scroll_amount(cx, self.target_scroll_amount);
+            } else {
+                let dt = self.last_instant.map_or(0.0, |instant| {
+                    cx.now().duration_since(instant).as_secs_f64()
+                });
+                self.last_instant = Some(cx.now());
+
+                self.inner.set_scroll_amount(
+                    cx,
+                    exp_decay(
+                        self.inner.scroll_amount,
+                        self.target_scroll_amount,
+                        self.smooth_scroll_decay,
+                        dt,
+                    ),
+                );
+            }
+
+            cx.window().request_redraw();
+        } else {
+            self.last_instant = None;
+        }
+
+        self.inner.render(cx, scene);
+    }
+
+    #[inline]
+    fn hit_test(&mut self, cx: &ElemCtx, point: Point) -> bool {
+        self.inner.hit_test(cx, point)
+    }
+
+    fn event(&mut self, cx: &ElemCtx, event: &dyn Event) -> EventResult {
+        if self.inner.scroll_x || self.inner.scroll_y {
             if let Some(event) = event.downcast::<event::WheelInput>() {
                 let mut delta = match event.delta {
                     MouseScrollDelta::LineDelta(x, y) => {
-                        Vec2::new(x as f64, y as f64) * self.line_size
+                        Vec2::new(x as f64, y as f64) * self.line_size * cx.scale_factor()
                     }
                     MouseScrollDelta::PixelDelta(delta) => Vec2::new(delta.x, delta.y),
                 };
 
-                if !self.scroll_x {
+                if !self.inner.scroll_x {
                     delta.x = 0.0;
                 }
-                if !self.scroll_y {
+                if !self.inner.scroll_y {
                     delta.y = 0.0;
                 }
 
-                self.scroll(cx, delta);
+                self.target_scroll_amount = self
+                    .inner
+                    .clamp_scroll_amount(self.target_scroll_amount + delta, cx);
+                cx.window().request_redraw();
+                return EventResult::Handled;
             }
         }
 
-        self.child.event(cx, event)
+        EventResult::Ignored
     }
+}
+
+fn exp_decay(a: Vec2, b: Vec2, k: f64, dt: f64) -> Vec2 {
+    b + (a - b) * (-dt * k).exp()
 }
