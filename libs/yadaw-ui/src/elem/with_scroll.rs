@@ -70,13 +70,10 @@ impl<E> WithScroll<E> {
 impl<E: ?Sized + Element> WithScroll<E> {
     /// Clamps the scroll amount to the bounds of the child element.
     pub fn set_scroll_amount(&mut self, cx: &ElemCtx, new: Vec2) {
-        let old_scroll = self.scroll_amount;
         self.scroll_amount = self.clamp_scroll_amount(new, cx);
-        if old_scroll != self.scroll_amount {
-            self.child
-                .set_position(cx, self.position + self.scroll_amount);
-            cx.window().request_redraw();
-        }
+        self.child
+            .set_position(cx, self.position + self.scroll_amount);
+        cx.window().request_redraw();
     }
 
     /// Clamps the provided scroll amount to the bounds of the child element.

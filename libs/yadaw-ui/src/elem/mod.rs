@@ -3,7 +3,7 @@
 //! [`Element`]: crate::element::Element
 
 pub mod shapes;
-pub use self::shapes::{ShapeElement, WithBackground};
+pub use self::shapes::{ClipShape, ShapeElement, WithBackground};
 
 pub mod text;
 pub use self::text::Text;
@@ -37,6 +37,7 @@ pub use self::empty::Empty;
 
 use {
     crate::element::{ElemCtx, Element, Event, EventResult},
+    std::{cell::RefCell, rc::Rc},
     vello::peniko::Brush,
     winit::window::CursorIcon,
 };
@@ -124,6 +125,12 @@ pub trait ElementExt: Sized + Element {
         WithCursor::new(self).with_cursor(cursor)
     }
 
+    /// Wraps the element in a clip shape.
+    #[inline]
+    fn with_clip_rect(self) -> ClipShape<self::shapes::RoundedRectangle, Self> {
+        ClipShape::new(Default::default(), self)
+    }
+
     /// Turns the element into a [`Box<dyn Element>`].
     #[inline]
     fn into_dyn_element(self) -> Box<dyn Element>
@@ -131,6 +138,23 @@ pub trait ElementExt: Sized + Element {
         Self: 'static,
     {
         Box::new(self)
+    }
+
+    /// Creates a reference-counted [`RefCell`] containing the element.
+    #[inline]
+    fn into_ref(self) -> Rc<RefCell<Self>> {
+        Rc::new(RefCell::new(self))
+    }
+
+    /// Creates a reference-counted [`RefCell`] containing the element, and calls a function with a
+    /// reference to the cell.
+    ///
+    /// This can be used to easily get a reference to the element without having to create
+    /// a temporary variable for it.
+    fn into_ref_bind(self, with: impl FnOnce(&Rc<RefCell<Self>>)) -> Rc<RefCell<Self>> {
+        let rc = self.into_ref();
+        with(&rc);
+        rc
     }
 }
 

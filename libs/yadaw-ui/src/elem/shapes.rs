@@ -361,3 +361,129 @@ impl<S: ToShape, E: ?Sized + Element> Element for WithBackground<S, E> {
         self.background.position = position;
     }
 }
+
+/// A shape that clips its child to its bounds.
+pub struct ClipShape<S, E: ?Sized> {
+    /// The shape to clip the child to.
+    shape: S,
+    /// The opacity used to clip the child.
+    opacity: f32,
+    /// The blend mode used to clip the child.
+    blend_mode: BlendMode,
+    /// The child element.
+    child: E,
+}
+
+impl<S, E> ClipShape<S, E> {
+    /// Creates a new [`ClipShape`] with the provided shape and child element.
+    pub fn new(shape: S, child: E) -> Self {
+        Self {
+            shape,
+            child,
+            opacity: 1.0,
+            blend_mode: BlendMode::default(),
+        }
+    }
+
+    /// Sets the opacity used to clip
+    pub fn with_opacity(mut self, opacity: f32) -> Self {
+        self.opacity = opacity;
+        self
+    }
+
+    /// Sets the blend mode used to clip
+    pub fn with_blend_mode(mut self, blend_mode: impl Into<BlendMode>) -> Self {
+        self.blend_mode = blend_mode.into();
+        self
+    }
+}
+
+impl<E> ClipShape<RoundedRectangle, E> {
+    /// Sets the radius of all corners.
+    pub fn with_radius(mut self, radius: Length) -> Self {
+        self.shape.top_left = radius.clone();
+        self.shape.top_right = radius.clone();
+        self.shape.bottom_left = radius.clone();
+        self.shape.bottom_right = radius;
+        self
+    }
+
+    /// Sets the radius of the top-left corner.
+    pub fn with_top_left_radius(mut self, radius: Length) -> Self {
+        self.shape.top_left = radius;
+        self
+    }
+
+    /// Sets the radius of the top-right corner.
+    pub fn with_top_right_radius(mut self, radius: Length) -> Self {
+        self.shape.top_right = radius;
+        self
+    }
+
+    /// Sets the radius of the bottom-left corner.
+    pub fn with_bottom_left_radius(mut self, radius: Length) -> Self {
+        self.shape.bottom_left = radius;
+        self
+    }
+
+    /// Sets the radius of the bottom-right corner.
+    pub fn with_bottom_right_radius(mut self, radius: Length) -> Self {
+        self.shape.bottom_right = radius;
+        self
+    }
+}
+
+impl<S, E> ClipShape<S, E>
+where
+    S: ToShape,
+    E: ?Sized + Element,
+{
+    #[allow(clippy::wrong_self_convention)]
+    fn to_shape(&mut self, cx: &ElemCtx) -> S::Shape {
+        let metrics = self.child.metrics(cx);
+
+        self.shape
+            .to_shape(cx, Rect::from_origin_size(metrics.position, metrics.size))
+    }
+}
+
+impl<S, E> Element for ClipShape<S, E>
+where
+    S: ToShape,
+    E: ?Sized + Element,
+{
+    #[inline]
+    fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
+        self.child.set_size(cx, size);
+    }
+
+    #[inline]
+    fn set_position(&mut self, cx: &ElemCtx, position: Point) {
+        self.child.set_position(cx, position);
+    }
+
+    #[inline]
+    fn metrics(&mut self, cx: &ElemCtx) -> Metrics {
+        self.child.metrics(cx)
+    }
+
+    fn render(&mut self, cx: &ElemCtx, scene: &mut Scene) {
+        scene.push_layer(
+            self.blend_mode,
+            self.opacity,
+            Affine::IDENTITY,
+            &self.to_shape(cx),
+        );
+        self.child.render(cx, scene);
+        scene.pop_layer();
+    }
+
+    fn hit_test(&mut self, cx: &ElemCtx, point: Point) -> bool {
+        self.to_shape(cx).contains(point) && self.child.hit_test(cx, point)
+    }
+
+    #[inline]
+    fn event(&mut self, cx: &ElemCtx, event: &dyn Event) -> EventResult {
+        self.child.event(cx, event)
+    }
+}

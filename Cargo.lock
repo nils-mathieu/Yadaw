@@ -2668,6 +2668,7 @@ dependencies = [
 name = "yadaw-ui"
 version = "0.1.0"
 dependencies = [
+ "bitflags 2.6.0",
  "hashbrown 0.15.2",
  "parley",
  "pollster",

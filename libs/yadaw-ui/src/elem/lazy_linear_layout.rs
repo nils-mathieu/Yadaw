@@ -5,10 +5,21 @@ use {
     },
     core::f64,
     vello::{
-        kurbo::{Point, Size, Vec2},
+        kurbo::{Point, Size},
         Scene,
     },
 };
+
+/// Indicates how much of a [`LazyLinearLayout`] is dirty.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum DirtyState {
+    /// The layout is clean.
+    Clean,
+    /// The position, direction or gap size has changed.
+    Position,
+    /// The size of the children has changed.
+    Size,
+}
 
 /// A child entry in a [`LazyLinearLayout`].
 struct ChildEntry<E: ?Sized> {
@@ -19,8 +30,6 @@ struct ChildEntry<E: ?Sized> {
 /// An [`Element`] that lays out an infinite number of children
 /// in a single direction.
 pub struct LazyLinearLayout<E, F: ?Sized> {
-    /// The size of the parent element. Used to create child contexts.
-    parent_size: Size,
     /// The current position of the layout.
     position: Point,
     /// The size of the layout.
@@ -34,6 +43,9 @@ pub struct LazyLinearLayout<E, F: ?Sized> {
     child_height: Length,
     /// The gap between each element.
     gap: Length,
+
+    /// Whether any of the layout's parameters have changed.
+    dirty: DirtyState,
 
     /// The children currently being laid out.
     children: Vec<ChildEntry<E>>,
@@ -52,7 +64,6 @@ impl<E, F> LazyLinearLayout<E, F> {
         F: FnMut(usize) -> E,
     {
         Self {
-            parent_size: Size::ZERO,
             position: Point::ZERO,
             size: Size::ZERO,
             direction: Direction::Horizontal,
@@ -60,6 +71,7 @@ impl<E, F> LazyLinearLayout<E, F> {
             child_height: Length::ZERO,
             gap: Length::ZERO,
             children: Vec::new(),
+            dirty: DirtyState::Size,
             make_children,
         }
     }
@@ -67,31 +79,67 @@ impl<E, F> LazyLinearLayout<E, F> {
     /// Sets the direction of the layout to horizontal.
     pub fn with_direction_horizontal(mut self) -> Self {
         self.direction = Direction::Horizontal;
+        self.add_dirt(DirtyState::Position);
         self
     }
 
     /// Sets the direction of the layout to vertical.
     pub fn with_direction_vertical(mut self) -> Self {
         self.direction = Direction::Vertical;
+        self.add_dirt(DirtyState::Position);
         self
     }
 
     /// Sets the width of each child.
     pub fn with_child_width(mut self, child_width: Length) -> Self {
         self.child_width = child_width;
+        self.add_dirt(DirtyState::Size);
         self
     }
 
     /// Sets the height of each child.
     pub fn with_child_height(mut self, child_height: Length) -> Self {
         self.child_height = child_height;
+        self.add_dirt(DirtyState::Size);
         self
     }
 
     /// Sets the gap between each element.
     pub fn with_gap(mut self, gap: Length) -> Self {
         self.gap = gap;
+        self.add_dirt(DirtyState::Position);
         self
+    }
+}
+
+impl<E, F: ?Sized> LazyLinearLayout<E, F> {
+    #[inline]
+    fn add_dirt(&mut self, dirty: DirtyState) {
+        self.dirty = self.dirty.max(dirty);
+    }
+
+    /// Sets the width of each child.
+    pub fn set_child_width(&mut self, child_width: Length) {
+        self.child_width = child_width;
+        self.add_dirt(DirtyState::Size);
+    }
+
+    /// Sets the height of each child.
+    pub fn set_child_height(&mut self, child_height: Length) {
+        self.child_height = child_height;
+        self.add_dirt(DirtyState::Size);
+    }
+
+    /// Sets the gap between each element.
+    pub fn set_gap(&mut self, gap: Length) {
+        self.gap = gap;
+        self.add_dirt(DirtyState::Position);
+    }
+
+    /// Sets the direction of the layout.
+    pub fn set_direction(&mut self, dir: Direction) {
+        self.direction = dir;
+        self.add_dirt(DirtyState::Position);
     }
 }
 
@@ -108,16 +156,16 @@ where
     ///
     /// - `update_children`: A function to be called once the hidden elements have been removed,
     ///   but before the new ones are added.
-    fn refresh_children(
-        &mut self,
-        cx: &ElemCtx,
-        child_cx: &ElemCtx,
-        update_children: &mut dyn FnMut(&mut Self, Vec2),
-    ) {
-        let gap = self.gap.resolve(cx);
+    fn refresh_children(&mut self, cx: &ElemCtx) {
+        if self.dirty == DirtyState::Clean {
+            return;
+        }
 
-        let child_width = self.child_width.resolve(child_cx);
-        let child_height = self.child_height.resolve(child_cx);
+        let child_cx = cx.inherit_parent_size(self.size);
+
+        let gap = self.gap.resolve(cx);
+        let child_width = self.child_width.resolve(cx);
+        let child_height = self.child_height.resolve(cx);
 
         let stride = match self.direction {
             Direction::Horizontal => child_width + gap,
@@ -147,7 +195,21 @@ where
 
         let stride_vec2 = self.direction.to_vec2() * stride;
 
-        update_children(self, stride_vec2);
+        // Udpate the children that are still visible.
+        for child in &mut self.children {
+            if self.dirty >= DirtyState::Position {
+                child
+                    .element
+                    .set_position(&child_cx, self.position + stride_vec2 * child.index as f64);
+            }
+
+            if self.dirty >= DirtyState::Size {
+                child.element.set_size(
+                    &child_cx,
+                    SetSize::from_specific(Size::new(child_width, child_height)),
+                );
+            }
+        }
 
         // Add children that are now visible.
         let initial_len = self.children.len();
@@ -165,11 +227,13 @@ where
             });
             let child = &mut self.children.last_mut().unwrap().element;
             child.set_size(
-                cx,
+                &child_cx,
                 SetSize::from_specific(Size::new(child_width, child_height)),
             );
-            child.set_position(cx, self.position + stride_vec2 * index as f64);
+            child.set_position(&child_cx, self.position + stride_vec2 * index as f64);
         }
+
+        self.dirty = DirtyState::Clean;
     }
 }
 
@@ -185,38 +249,19 @@ where
             size,
         );
 
-        self.parent_size = size.or_zero();
-        let child_cx = cx.inherit_parent_size(self.parent_size);
-
-        let child_width = self.child_width.resolve(&child_cx);
-        let child_height = self.child_height.resolve(&child_cx);
+        let child_width = self.child_width.resolve(cx);
+        let child_height = self.child_height.resolve(cx);
 
         self.size = match self.direction {
             Direction::Horizontal => Size::new(f64::INFINITY, child_height),
             Direction::Vertical => Size::new(child_width, f64::INFINITY),
         };
-
-        self.refresh_children(cx, &child_cx, &mut |this, _| {
-            for child in &mut this.children {
-                child.element.set_size(
-                    cx,
-                    SetSize::from_specific(Size::new(child_width, child_height)),
-                );
-            }
-        });
     }
 
     fn set_position(&mut self, cx: &ElemCtx, position: Point) {
-        let child_cx = cx.inherit_parent_size(self.parent_size);
-
         self.position = position;
-
-        self.refresh_children(cx, &child_cx, &mut |this, stride| {
-            for child in &mut this.children {
-                let pos = position + stride * child.index as f64;
-                child.element.set_position(cx, pos);
-            }
-        });
+        self.add_dirt(DirtyState::Position);
+        self.refresh_children(cx);
     }
 
     #[inline]
@@ -229,24 +274,27 @@ where
     }
 
     fn render(&mut self, cx: &ElemCtx, scene: &mut Scene) {
-        let child_cx = cx.inherit_parent_size(self.parent_size);
+        self.refresh_children(cx);
 
+        let child_cx = cx.inherit_parent_size(self.size);
         for child in &mut self.children {
             child.element.render(&child_cx, scene);
         }
     }
 
     fn hit_test(&mut self, cx: &ElemCtx, point: Point) -> bool {
-        let child_cx = cx.inherit_parent_size(self.parent_size);
+        self.refresh_children(cx);
 
+        let child_cx = cx.inherit_parent_size(self.size);
         self.children
             .iter_mut()
             .any(|child| child.element.hit_test(&child_cx, point))
     }
 
     fn event(&mut self, cx: &ElemCtx, event: &dyn Event) -> EventResult {
-        let child_cx = cx.inherit_parent_size(self.parent_size);
+        self.refresh_children(cx);
 
+        let child_cx = cx.inherit_parent_size(self.size);
         for child in &mut self.children {
             if child.element.event(&child_cx, event).is_handled() {
                 return EventResult::Handled;

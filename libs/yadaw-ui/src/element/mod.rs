@@ -12,7 +12,10 @@ pub use self::metrics::*;
 mod event;
 pub use self::event::*;
 
-use vello::{kurbo::Point, Scene};
+use {
+    std::{cell::RefCell, rc::Rc},
+    vello::{kurbo::Point, Scene},
+};
 
 /// Represents an element that can be rendered to the screen.
 pub trait Element {
@@ -124,32 +127,6 @@ pub trait Element {
     fn event(&mut self, cx: &ElemCtx, event: &dyn Event) -> EventResult;
 }
 
-impl Element for () {
-    #[inline]
-    fn set_size(&mut self, _cx: &ElemCtx, _size: SetSize) {}
-
-    #[inline]
-    fn set_position(&mut self, _cx: &ElemCtx, _position: Point) {}
-
-    #[inline]
-    fn metrics(&mut self, _cx: &ElemCtx) -> Metrics {
-        Metrics::EMPTY
-    }
-
-    #[inline]
-    fn render(&mut self, _cx: &ElemCtx, _scene: &mut Scene) {}
-
-    #[inline]
-    fn hit_test(&mut self, _cx: &ElemCtx, _point: Point) -> bool {
-        false
-    }
-
-    #[inline]
-    fn event(&mut self, _cx: &ElemCtx, _event: &dyn Event) -> EventResult {
-        EventResult::Ignored
-    }
-}
-
 impl<E: ?Sized + Element> Element for Box<E> {
     #[inline]
     fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
@@ -179,5 +156,31 @@ impl<E: ?Sized + Element> Element for Box<E> {
     #[inline]
     fn event(&mut self, cx: &ElemCtx, event: &dyn Event) -> EventResult {
         (**self).event(cx, event)
+    }
+}
+
+impl<E: ?Sized + Element> Element for Rc<RefCell<E>> {
+    fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
+        self.borrow_mut().set_size(cx, size)
+    }
+
+    fn set_position(&mut self, cx: &ElemCtx, position: Point) {
+        self.borrow_mut().set_position(cx, position)
+    }
+
+    fn metrics(&mut self, cx: &ElemCtx) -> Metrics {
+        self.borrow_mut().metrics(cx)
+    }
+
+    fn render(&mut self, cx: &ElemCtx, scene: &mut Scene) {
+        self.borrow_mut().render(cx, scene)
+    }
+
+    fn hit_test(&mut self, cx: &ElemCtx, point: Point) -> bool {
+        self.borrow_mut().hit_test(cx, point)
+    }
+
+    fn event(&mut self, cx: &ElemCtx, event: &dyn Event) -> EventResult {
+        self.borrow_mut().event(cx, event)
     }
 }

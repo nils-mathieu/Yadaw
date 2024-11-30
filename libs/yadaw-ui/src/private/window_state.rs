@@ -142,7 +142,7 @@ impl WindowState {
             closing: Cell::new(false),
             size: Cell::new(size),
             clear_color: Cell::new(Color::WHITE),
-            root_element: Cell::new(Some(Box::new(()))),
+            root_element: Cell::new(Some(Box::new(crate::elem::Empty::default()))),
             scale_factor: Cell::new(scale_factor),
             cursor_stack: RefCell::new(CursorStack::default()),
         })
