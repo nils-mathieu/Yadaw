@@ -258,10 +258,9 @@ where
         };
     }
 
-    fn set_position(&mut self, cx: &ElemCtx, position: Point) {
+    fn set_position(&mut self, _cx: &ElemCtx, position: Point) {
         self.position = position;
         self.add_dirt(DirtyState::Position);
-        self.refresh_children(cx);
     }
 
     #[inline]

@@ -296,13 +296,20 @@ impl<E> WithBackground<RoundedRectangle, E> {
     }
 }
 
-impl<S, E: ?Sized> WithBackground<S, E> {
+impl<S: ToShape, E: ?Sized> WithBackground<S, E> {
     fn child_ctx(&self, cx: &ElemCtx) -> ElemCtx {
         if self.clip_child {
+            let shape = self.background.to_shape(cx);
+
             cx.inherit_clip_rect(Rect::from_origin_size(
                 self.background.position,
                 self.background.size,
             ))
+            .inherit_cursor_present(
+                cx.window()
+                    .last_reported_cursor_position()
+                    .is_some_and(|pos| shape.contains(pos)),
+            )
         } else {
             cx.clone()
         }
@@ -312,7 +319,8 @@ impl<S, E: ?Sized> WithBackground<S, E> {
 impl<S: ToShape, E: ?Sized + Element> Element for WithBackground<S, E> {
     #[inline]
     fn metrics(&mut self, cx: &ElemCtx) -> Metrics {
-        self.child.metrics(&self.child_ctx(cx))
+        let child_cx = self.child_ctx(cx);
+        self.child.metrics(&child_cx)
     }
 
     fn render(&mut self, cx: &ElemCtx, scene: &mut Scene) {
@@ -364,6 +372,9 @@ impl<S: ToShape, E: ?Sized + Element> Element for WithBackground<S, E> {
 
 /// A shape that clips its child to its bounds.
 pub struct ClipShape<S, E: ?Sized> {
+    position: Point,
+    size: Size,
+
     /// The shape to clip the child to.
     shape: S,
     /// The opacity used to clip the child.
@@ -378,6 +389,8 @@ impl<S, E> ClipShape<S, E> {
     /// Creates a new [`ClipShape`] with the provided shape and child element.
     pub fn new(shape: S, child: E) -> Self {
         Self {
+            position: Point::ZERO,
+            size: Size::ZERO,
             shape,
             child,
             opacity: 1.0,
@@ -438,12 +451,23 @@ where
     S: ToShape,
     E: ?Sized + Element,
 {
+    fn rect(&self) -> Rect {
+        Rect::from_origin_size(self.position, self.size)
+    }
+
     #[allow(clippy::wrong_self_convention)]
     fn to_shape(&mut self, cx: &ElemCtx) -> S::Shape {
-        let metrics = self.child.metrics(cx);
+        self.shape.to_shape(cx, self.rect())
+    }
 
-        self.shape
-            .to_shape(cx, Rect::from_origin_size(metrics.position, metrics.size))
+    fn child_cx(&mut self, cx: &ElemCtx) -> ElemCtx {
+        let shape = self.shape.to_shape(cx, self.rect());
+
+        cx.inherit_clip_rect(self.rect()).inherit_cursor_present(
+            cx.window()
+                .last_reported_cursor_position()
+                .is_some_and(|pos| shape.contains(pos)),
+        )
     }
 }
 
@@ -454,12 +478,118 @@ where
 {
     #[inline]
     fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
+        let child_cx = self.child_cx(cx);
+        self.child.set_size(&child_cx, size);
+        self.size = size.or_fallback(self.child.metrics(&child_cx).size);
+    }
+
+    #[inline]
+    fn set_position(&mut self, cx: &ElemCtx, position: Point) {
+        let child_cx = self.child_cx(cx);
+        self.child.set_position(&child_cx, position);
+        self.position = position;
+    }
+
+    #[inline]
+    fn metrics(&mut self, cx: &ElemCtx) -> Metrics {
+        let child_cx = self.child_cx(cx);
+        self.child.metrics(&child_cx)
+    }
+
+    fn render(&mut self, cx: &ElemCtx, scene: &mut Scene) {
+        let shape = self.to_shape(cx);
+        let child_cx = self.child_cx(cx);
+
+        scene.push_layer(self.blend_mode, self.opacity, Affine::IDENTITY, &shape);
+        self.child.render(&child_cx, scene);
+        scene.pop_layer();
+    }
+
+    fn hit_test(&mut self, cx: &ElemCtx, point: Point) -> bool {
+        let child_cx = self.child_cx(cx);
+        self.to_shape(cx).contains(point) && self.child.hit_test(&child_cx, point)
+    }
+
+    #[inline]
+    fn event(&mut self, cx: &ElemCtx, event: &dyn Event) -> EventResult {
+        let child_cx = self.child_cx(cx);
+        self.child.event(&child_cx, event)
+    }
+}
+
+/// A shape that draws a block pointer behind its child.
+pub struct BlockShape<S, E: ?Sized> {
+    position: Point,
+    size: Size,
+
+    /// The shape of the block pointer.
+    pub shape: S,
+    /// The child element.
+    pub child: E,
+}
+
+impl<S, E> BlockShape<S, E> {
+    /// Creates a new [`BlockPointerShape`] with the provided child element.
+    pub fn new(shape: S, child: E) -> Self {
+        Self {
+            position: Point::ZERO,
+            size: Size::ZERO,
+            shape,
+            child,
+        }
+    }
+}
+
+impl<E> BlockShape<RoundedRectangle, E> {
+    /// Sets the radius of all corners.
+    pub fn with_radius(mut self, radius: Length) -> Self {
+        self.shape.top_left = radius.clone();
+        self.shape.top_right = radius.clone();
+        self.shape.bottom_left = radius.clone();
+        self.shape.bottom_right = radius;
+        self
+    }
+
+    /// Sets the radius of the top-left corner.
+    pub fn with_top_left_radius(mut self, radius: Length) -> Self {
+        self.shape.top_left = radius;
+        self
+    }
+
+    /// Sets the radius of the top-right corner.
+    pub fn with_top_right_radius(mut self, radius: Length) -> Self {
+        self.shape.top_right = radius;
+        self
+    }
+
+    /// Sets the radius of the bottom-left corner.
+    pub fn with_bottom_left_radius(mut self, radius: Length) -> Self {
+        self.shape.bottom_left = radius;
+        self
+    }
+
+    /// Sets the radius of the bottom-right corner.
+    pub fn with_bottom_right_radius(mut self, radius: Length) -> Self {
+        self.shape.bottom_right = radius;
+        self
+    }
+}
+
+impl<S, E> Element for BlockShape<S, E>
+where
+    S: ToShape,
+    E: ?Sized + Element,
+{
+    #[inline]
+    fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
         self.child.set_size(cx, size);
+        self.size = size.or_fallback(self.child.metrics(cx).size);
     }
 
     #[inline]
     fn set_position(&mut self, cx: &ElemCtx, position: Point) {
         self.child.set_position(cx, position);
+        self.position = position;
     }
 
     #[inline]
@@ -467,19 +597,17 @@ where
         self.child.metrics(cx)
     }
 
+    #[inline]
     fn render(&mut self, cx: &ElemCtx, scene: &mut Scene) {
-        scene.push_layer(
-            self.blend_mode,
-            self.opacity,
-            Affine::IDENTITY,
-            &self.to_shape(cx),
-        );
         self.child.render(cx, scene);
-        scene.pop_layer();
     }
 
+    #[inline]
     fn hit_test(&mut self, cx: &ElemCtx, point: Point) -> bool {
-        self.to_shape(cx).contains(point) && self.child.hit_test(cx, point)
+        self.shape
+            .to_shape(cx, Rect::from_origin_size(self.position, self.size))
+            .contains(point)
+            || self.child.hit_test(cx, point)
     }
 
     #[inline]

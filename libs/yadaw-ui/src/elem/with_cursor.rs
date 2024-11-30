@@ -67,7 +67,7 @@ impl<E: ?Sized + Element> Element for WithCursor<E> {
 
     fn event(&mut self, cx: &ElemCtx, event: &dyn Event) -> EventResult {
         if let Some(event) = event.downcast::<event::CursorMoved>() {
-            let now_hovered = self.child.hit_test(cx, event.position);
+            let now_hovered = cx.is_cursor_present() && self.child.hit_test(cx, event.position);
             if now_hovered != self.hovered {
                 self.hovered = now_hovered;
                 if now_hovered {

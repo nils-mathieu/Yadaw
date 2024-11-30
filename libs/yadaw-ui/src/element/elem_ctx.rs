@@ -24,7 +24,7 @@ pub struct ElemCtx {
     ///
     /// This happens either because it is outside of the window, or because it
     /// is outside of the current clipping shape.
-    pub(crate) cursor_absent: bool,
+    pub(crate) cursor_present: bool,
 
     /// The window handle that the element is a part of.
     pub(crate) window: Window,
@@ -62,10 +62,10 @@ impl ElemCtx {
     }
 
     /// Re-creates a new [`ElemCtx`] with the same properties as this one, but with a different
-    /// cursor absent state.
-    pub fn inherit_cursor_absent(&self, yes: bool) -> Self {
+    /// cursor present state.
+    pub fn inherit_cursor_present(&self, yes: bool) -> Self {
         Self {
-            cursor_absent: yes,
+            cursor_present: yes,
             ..self.clone()
         }
     }
@@ -92,13 +92,13 @@ impl ElemCtx {
         self.scale_factor
     }
 
-    /// Returns whether the cursor is currently absent from the current element tree.
+    /// Returns whether the cursor is currently present from the current element tree.
     ///
-    /// This happens either because it is outside of the window, or because it is outside of the
-    /// current clipping shape.
+    /// This can become `false` either because the cursor is outside of the window, or because it
+    /// is outside of the current clipping shape.
     #[inline]
-    pub fn is_cursor_absent(&self) -> bool {
-        self.cursor_absent
+    pub fn is_cursor_present(&self) -> bool {
+        self.cursor_present
     }
 
     /// Returns the window handle that the element is a part of.

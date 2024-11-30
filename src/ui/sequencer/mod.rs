@@ -7,13 +7,21 @@ use {
     yadaw_ui::{
         elem::{self, utils::exp_decay, ElementExt},
         element::{Element, EventResult},
-        event::{self, MouseScrollDelta},
-        kurbo::Vec2,
+        event::{self, MouseButton, MouseScrollDelta},
+        kurbo::{Point, Vec2},
         parley::FontWeight,
         peniko::Color,
         CursorIcon,
     },
 };
+
+/// The state of the dragging operation.
+struct DraggingState {
+    /// The last cursor position.
+    ///
+    /// This is updated every time a new position is received.
+    last_position: Point,
+}
 
 /// The current state of the sequencer's UI.
 struct SequencerUiState {
@@ -56,6 +64,10 @@ struct SequencerUiState {
     ///
     /// [`target_drag_offset`]: SequencerUiState::target_drag_offset
     drag_offset: Vec2,
+
+    /// If the sequencer is currently being dragged around, this
+    /// field contains the state of the dragging.
+    dragging_state: Option<DraggingState>,
 }
 
 impl Default for SequencerUiState {
@@ -65,6 +77,7 @@ impl Default for SequencerUiState {
             zoom: Vec2::new(300.0, 100.0),
             drag_offset: Vec2::ZERO,
             target_drag_offset: Vec2::ZERO,
+            dragging_state: None,
         }
     }
 }
@@ -121,6 +134,8 @@ pub fn build() -> impl Element {
             .with_radius(elem::Length::Pixels(16.0))
             .into_dyn_element(),
         )
+        .with_margin(elem::Length::Pixels(16.0))
+        .with_block_rect()
         .hook_animation({
             let header_layout = header_layout.clone();
             let state = state.clone();
@@ -159,10 +174,23 @@ pub fn build() -> impl Element {
         })
         .hook_events({
             let state = state.clone();
+            let header_layout = header_layout.clone();
             move |el, cx, ev| {
+                let header_layout = header_layout.upgrade().unwrap();
+                let mut header_layout = header_layout.borrow_mut();
                 let mut state = state.borrow_mut();
 
+                let hover = cx.is_cursor_present()
+                    && cx
+                        .window()
+                        .last_reported_cursor_position()
+                        .is_some_and(|pos| el.hit_test(cx, pos));
+
                 if let Some(ev) = ev.downcast::<event::WheelInput>() {
+                    if !hover {
+                        return EventResult::Ignored;
+                    }
+
                     if cx.window().modifiers().control_key() {
                         let mut amount = match ev.delta {
                             MouseScrollDelta::LineDelta(dx, dy) => Vec2::new(dx as f64, dy as f64),
@@ -196,10 +224,39 @@ pub fn build() -> impl Element {
                         el.start_animation(cx);
                     }
                     return EventResult::Handled;
+                } else if let Some(ev) = ev.downcast::<event::MouseInput>() {
+                    if !hover {
+                        return EventResult::Ignored;
+                    }
+
+                    if ev.button == MouseButton::Middle {
+                        if ev.state.is_pressed() && state.dragging_state.is_none() {
+                            if let Some(pos) = cx.window().last_reported_cursor_position() {
+                                state.dragging_state = Some(DraggingState { last_position: pos });
+                            }
+                        } else if !ev.state.is_pressed() && state.dragging_state.is_some() {
+                            state.dragging_state = None;
+                        }
+                    }
+                }
+
+                if let Some(ev) = ev.downcast::<event::CursorMoved>() {
+                    if let Some(drag_state) = state.dragging_state.as_mut() {
+                        let diff = ev.position - drag_state.last_position;
+                        drag_state.last_position = ev.position;
+
+                        state.drag_offset += diff;
+                        state.drag_offset.x = state.drag_offset.x.min(0.0);
+                        state.drag_offset.y = state.drag_offset.y.min(0.0);
+                        state.target_drag_offset = state.drag_offset;
+
+                        header_layout.set_scroll_amount(cx, Vec2::new(0.0, state.drag_offset.y));
+
+                        cx.window().request_redraw();
+                    }
                 }
 
                 EventResult::Ignored
             }
         })
-        .with_margin(elem::Length::Pixels(16.0))
 }

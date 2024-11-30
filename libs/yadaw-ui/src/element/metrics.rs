@@ -1,4 +1,4 @@
-use vello::kurbo::{Point, Size};
+use vello::kurbo::{Point, Rect, Size};
 
 /// The metrics associated with an element.
 #[derive(Debug, Clone, Copy)]
@@ -22,4 +22,10 @@ impl Metrics {
         size: Size::ZERO,
         baseline: 0.0,
     };
+
+    /// Returns a rectangle representing the metrics.
+    #[inline]
+    pub fn rect(&self) -> Rect {
+        Rect::from_origin_size(self.position, self.size)
+    }
 }

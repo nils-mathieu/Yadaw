@@ -236,7 +236,7 @@ where
 
         if self.inner.scroll_x || self.inner.scroll_y {
             if let Some(event) = event.downcast::<event::WheelInput>() {
-                if !cx.is_cursor_absent()
+                if cx.is_cursor_present()
                     && cx
                         .window()
                         .last_reported_cursor_position()

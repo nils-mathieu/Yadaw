@@ -5,7 +5,7 @@
 pub mod utils;
 
 pub mod shapes;
-pub use self::shapes::{ClipShape, ShapeElement, WithBackground};
+pub use self::shapes::{BlockShape, ClipShape, ShapeElement, WithBackground};
 
 pub mod text;
 pub use self::text::Text;
@@ -168,6 +168,13 @@ pub trait ElementExt: Sized + Element {
         let rc = self.into_ref();
         with(&rc);
         rc
+    }
+
+    /// Wraps the element in a block pointer shape, making sure that pointer events are blocked
+    /// at that element.
+    #[inline]
+    fn with_block_rect(self) -> BlockShape<self::shapes::RoundedRectangle, Self> {
+        BlockShape::new(Default::default(), self)
     }
 }
 

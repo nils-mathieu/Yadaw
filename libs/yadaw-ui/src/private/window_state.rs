@@ -194,7 +194,7 @@ impl WindowState {
             clip_rect: size.to_rect(),
             parent_size: size,
             scale_factor: self.scale_factor.get(),
-            cursor_absent: !self.cursor_inside.get(),
+            cursor_present: self.cursor_inside.get(),
             window: Window::from_state(Rc::downgrade(self)),
             app: App::from_state(self.app.clone()),
         }
