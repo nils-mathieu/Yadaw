@@ -138,7 +138,7 @@ where
         let true_end = end.min(visible_end);
 
         let skipped_children = ((true_start - start) / stride).floor() as usize;
-        let visible_children = ((true_end - true_start) / stride).ceil() as usize;
+        let visible_children = ((true_end - true_start) / stride).ceil() as usize + 1;
 
         // Remove children that are no longer visible.
         self.children.retain(|child| {

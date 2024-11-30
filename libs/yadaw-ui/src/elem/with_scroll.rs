@@ -254,6 +254,7 @@ where
                 self.target_scroll_amount = self
                     .inner
                     .clamp_scroll_amount(self.target_scroll_amount + delta, cx);
+
                 cx.window().request_redraw();
                 return EventResult::Handled;
             }

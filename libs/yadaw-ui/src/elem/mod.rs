@@ -32,6 +32,9 @@ pub use self::with_default_size::WithDefaultSize;
 mod with_cursor;
 pub use self::with_cursor::WithCursor;
 
+mod empty;
+pub use self::empty::Empty;
+
 use {
     crate::element::{ElemCtx, Element, Event, EventResult},
     vello::peniko::Brush,
@@ -65,7 +68,7 @@ pub trait ElementExt: Sized + Element {
 
     /// Makes sure that the element has a default height.
     fn with_default_height(self, height: Length) -> WithDefaultSize<Self> {
-        WithDefaultSize::new(self).with_width(height)
+        WithDefaultSize::new(self).with_height(height)
     }
 
     /// Makes sure that the element has a default width.

@@ -7,7 +7,7 @@ use {
         element::{ElemCtx, Element, Event, EventResult, Metrics, SetSize},
     },
     vello::{
-        kurbo::{Affine, Point, Rect, RoundedRect, RoundedRectRadii, Shape, Size},
+        kurbo::{self, Affine, Point, Rect, RoundedRect, RoundedRectRadii, Shape, Size},
         peniko::{BlendMode, Brush, Fill},
         Scene,
     },
@@ -77,6 +77,18 @@ impl ToShape for RoundedRectangle {
                 self.bottom_left.resolve(cx),
             ),
         )
+    }
+}
+
+/// An ellipse shape.
+#[derive(Default, Debug, Clone, Copy)]
+pub struct Ellipse;
+
+impl ToShape for Ellipse {
+    type Shape = kurbo::Ellipse;
+
+    fn to_shape(&self, _cx: &ElemCtx, rect: Rect) -> Self::Shape {
+        rect.to_ellipse()
     }
 }
 

@@ -1,6 +1,6 @@
 use {
     crate::{
-        elem::Length,
+        elem::{Empty, Length},
         element::{ElemCtx, Element, Event, EventResult, Metrics, SetSize},
     },
     vello::{
@@ -223,6 +223,15 @@ impl<E> LinearLayout<E> {
     }
 }
 
+impl LinearLayout<Box<dyn Element>> {
+    /// Adds a child element to the layout.
+    pub fn with_space(mut self, grow: f64) -> Self {
+        self.children
+            .push(Child::new(Box::new(Empty::default()) as _).with_grow(grow));
+        self
+    }
+}
+
 impl<E> Default for LinearLayout<E> {
     fn default() -> Self {
         Self {
@@ -378,6 +387,16 @@ fn dyn_set_size(
             };
 
             child.element.set_size(&child_cx, child_set_size);
+            let child_metrics = child.element.metrics(&child_cx);
+
+            match direction {
+                Direction::Horizontal => {
+                    children_cross_length = children_cross_length.max(child_metrics.size.height);
+                }
+                Direction::Vertical => {
+                    children_cross_length = children_cross_length.max(child_metrics.size.width);
+                }
+            }
         });
     }
 
