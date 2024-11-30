@@ -28,3 +28,22 @@ pub use self::events::{CatchEvent, HookEvents};
 
 mod with_size;
 pub use self::with_size::WithSize;
+
+mod with_cursor;
+pub use self::with_cursor::WithCursor;
+
+use crate::element::Element;
+
+/// An extension trait for elements.
+pub trait ElementExt: Sized + Element {
+    /// Turns the element into a [`Box<dyn Element>`].
+    #[inline]
+    fn into_dyn_element(self) -> Box<dyn Element>
+    where
+        Self: 'static,
+    {
+        Box::new(self)
+    }
+}
+
+impl<E: Element> ElementExt for E {}

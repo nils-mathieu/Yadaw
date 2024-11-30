@@ -1,10 +1,21 @@
 use {
-    crate::{element::Element, private::WindowState},
+    crate::{
+        element::Element,
+        private::{LiveCursorId, WindowState},
+    },
     std::{
         fmt::Debug,
         rc::{Rc, Weak},
     },
 };
+
+pub use winit::window::{Cursor, CursorIcon, CursorIconParseError, CustomCursor};
+
+/// A cursor that has been added to a window.
+///
+/// This cheap handle can be used to remove the cursor from the window.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct LiveCursor(LiveCursorId);
 
 /// Represents a window that has been opened by the UI framework.
 ///
@@ -85,6 +96,21 @@ impl Window {
     #[track_caller]
     pub fn request_redraw(&self) {
         self.state().os_window().request_redraw();
+    }
+
+    /// Pushes a new cursor onto the cursor stack.
+    ///
+    /// This function must be called in pairs with [`pop_cursor`](Window::pop_cursor).
+    #[track_caller]
+    pub fn push_cursor(&self, cursor: Cursor) -> LiveCursor {
+        let id = self.state().push_cursor(cursor);
+        LiveCursor(id)
+    }
+
+    /// Pops a cursor from the cursor stack.
+    #[track_caller]
+    pub fn pop_cursor(&self, cursor: LiveCursor) {
+        self.state().pop_cursor(cursor.0);
     }
 }
 

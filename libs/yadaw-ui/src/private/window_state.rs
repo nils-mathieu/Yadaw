@@ -4,8 +4,10 @@ use {
         private::{AppState, Renderer, SurfaceTarget},
         App, Window,
     },
+    slotmap::{new_key_type, SlotMap},
+    smallvec::SmallVec,
     std::{
-        cell::Cell,
+        cell::{Cell, RefCell},
         mem::ManuallyDrop,
         rc::{Rc, Weak},
     },
@@ -14,7 +16,10 @@ use {
         peniko::Color,
         Scene,
     },
-    winit::{dpi::PhysicalSize, window::Window as OsWindow},
+    winit::{
+        dpi::PhysicalSize,
+        window::{Cursor, Window as OsWindow},
+    },
 };
 
 /// The dirty state of the window.
@@ -29,9 +34,65 @@ enum DirtyState {
     Surface,
 }
 
+new_key_type! {
+    /// The ID of a live cursor.
+    pub struct LiveCursorId;
+}
+
+/// A simple structure to hold a stack of cursor.
+#[derive(Default)]
+struct CursorStack {
+    /// The cursor currently displayed.
+    ///
+    /// This is the previous top of the stack. Only to be updated when the top of the stack
+    /// is different from
+    current: Cursor,
+    /// The collection of live cursors currently managed.
+    storage: SlotMap<LiveCursorId, Cursor>,
+    /// The actual cursor stack.
+    stack: SmallVec<[LiveCursorId; 4]>,
+}
+
+impl CursorStack {
+    /// Computes whether the cursor stack has changed.
+    ///
+    /// If so, it returns the new cursor to display.
+    pub fn advance(&mut self) -> Option<Cursor> {
+        let new = self
+            .stack
+            .last()
+            .map(|id| self.storage[*id].clone())
+            .unwrap_or_default();
+
+        if new != self.current {
+            self.current = new.clone();
+            Some(new)
+        } else {
+            None
+        }
+    }
+
+    /// Pushes a new cursor onto the stack, returning its ID.
+    pub fn push_cursor(&mut self, cursor: Cursor) -> LiveCursorId {
+        let id = self.storage.insert(cursor);
+        self.stack.push(id);
+        id
+    }
+
+    /// Removes a cursor from the stack.
+    ///
+    /// This function fails silently if the cursor is not in the stack.
+    pub fn pop_cursor(&mut self, id: LiveCursorId) {
+        if self.storage.remove(id).is_some() {
+            let index = self.stack.iter().position(|&i| i == id).unwrap();
+            self.stack.remove(index);
+        }
+    }
+}
+
 /// Contains the state of a window created by the UI framework.
 ///
-/// This type is expected to be used through a reference counted pointer.
+/// This type is expected to be used45 through a reference counted pointer.
 pub struct WindowState {
     /// The underlying window object that is managed by the `winit` crate.
     window: SurfaceTarget,
@@ -61,6 +122,11 @@ pub struct WindowState {
     /// This is used to scale the window's content to match the actual size of the window
     /// on high-DPI displays.
     scale_factor: Cell<f64>,
+
+    /// The stack of cursors that are currently being used.
+    ///
+    /// Only the top cursor is visible.
+    cursor_stack: RefCell<CursorStack>,
 }
 
 impl WindowState {
@@ -78,6 +144,7 @@ impl WindowState {
             clear_color: Cell::new(Color::WHITE),
             root_element: Cell::new(Some(Box::new(()))),
             scale_factor: Cell::new(scale_factor),
+            cursor_stack: RefCell::new(CursorStack::default()),
         })
     }
 
@@ -199,7 +266,11 @@ impl WindowState {
     }
 
     /// Notifies the window state that the event loop iteration has ended.
-    pub fn notify_end_of_event_loop_iteration(&self) {}
+    pub fn notify_end_of_event_loop_iteration(&self) {
+        if let Some(new_cursor) = self.cursor_stack.borrow_mut().advance() {
+            self.window.set_cursor(new_cursor);
+        }
+    }
 
     /// Sets the root element of the window.
     pub fn set_root_element(&self, root: Box<dyn Element>) {
@@ -219,5 +290,15 @@ impl WindowState {
             let elem_ctx = self.elem_ctx();
             root.event(&elem_ctx, event);
         });
+    }
+
+    /// Pushes a new cursor onto the cursor stack.
+    pub fn push_cursor(&self, cursor: Cursor) -> LiveCursorId {
+        self.cursor_stack.borrow_mut().push_cursor(cursor)
+    }
+
+    /// Removes the cursor with the provided ID from the cursor stack.
+    pub fn pop_cursor(&self, id: LiveCursorId) {
+        self.cursor_stack.borrow_mut().pop_cursor(id);
     }
 }

@@ -2,13 +2,13 @@
 
 use yadaw_ui::{
     dpi::PhysicalSize,
-    elem,
+    elem::{self, ElementExt},
     element::{ElemCtx, Element, Event, EventResult},
     event::{self, NamedKey},
     parley::FontContext,
     peniko::Color,
     winit::window::WindowAttributes,
-    App,
+    App, CursorIcon,
 };
 
 fn main() {
@@ -46,9 +46,32 @@ fn app_element() -> impl Element {
         .with_align_start()
         .with_justify_center()
         .with_gap(elem::Length::Pixels(20.0))
-        .with_child(rect(Color::GREEN, 100.0, 200.0))
-        .with_child(rect(Color::GREEN, 200.0, 200.0))
-        .with_child(rect(Color::GREEN, 200.0, 100.0))
+        .with_child(rect(Color::GREEN, 100.0, 200.0).into_dyn_element())
+        .with_child(
+            elem::WithCursor::new(
+                elem::WithSize::new(
+                    elem::ShapeElement::<elem::shapes::RoundedRectangle>::default()
+                        .with_radius(elem::Length::Pixels(10.0))
+                        .with_brush(Color::RED)
+                        .with_child(
+                            elem::WithMargin::new(
+                                elem::WithCursor::new(
+                                    elem::ShapeElement::<elem::shapes::RoundedRectangle>::default()
+                                        .with_radius(elem::Length::Pixels(10.0))
+                                        .with_brush(Color::BLUE),
+                                )
+                                .with_cursor(CursorIcon::Progress),
+                            )
+                            .with_margin(elem::Length::Pixels(30.0)),
+                        ),
+                )
+                .with_width(elem::Length::Pixels(150.0))
+                .with_height(elem::Length::Pixels(150.0)),
+            )
+            .with_cursor(CursorIcon::Pointer)
+            .into_dyn_element(),
+        )
+        .with_child(rect(Color::GREEN, 200.0, 100.0).into_dyn_element())
 }
 
 fn rect(color: Color, width: f64, height: f64) -> impl Element {

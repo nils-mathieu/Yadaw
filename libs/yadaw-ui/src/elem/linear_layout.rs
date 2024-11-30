@@ -112,8 +112,8 @@ pub struct LinearLayout<E> {
 
 impl<E> LinearLayout<E> {
     /// Adds a child element to the layout.
-    pub fn with_child(mut self, child: impl Into<Child<E>>) -> Self {
-        self.children.push(child.into());
+    pub fn with_child(mut self, child: E) -> Self {
+        self.children.push(Child::new(child));
         self
     }
 

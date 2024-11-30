@@ -103,7 +103,7 @@ impl<E: ?Sized + Element> Element for WithMargin<E> {
 
         Metrics {
             position: self.child.metrics(cx).position - Vec2::new(left, top),
-            size: self.child.metrics(cx).size - Size::new(left + right, top + bottom),
+            size: self.child.metrics(cx).size + Size::new(left + right, top + bottom),
             baseline: self.child.metrics(cx).baseline - bottom,
         }
     }

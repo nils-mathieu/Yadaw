@@ -1,6 +1,9 @@
 pub use winit::event::{MouseButton, MouseScrollDelta, TouchPhase};
 
-use winit::event::{DeviceId, ElementState};
+use {
+    vello::kurbo::Point,
+    winit::event::{DeviceId, ElementState},
+};
 
 /// An event indicating that a mouse button has been pressed or released.
 #[derive(Debug, Clone)]
@@ -24,4 +27,13 @@ pub struct WheelInput {
     pub delta: MouseScrollDelta,
     /// The current touch phase.
     pub phase: TouchPhase,
+}
+
+/// An event indicating that the mouse has been moved.
+#[derive(Debug, Clone)]
+pub struct CursorMoved {
+    /// The ID of the device that was used to generate the event.
+    pub device_id: DeviceId,
+    /// The new position of the cursor.
+    pub position: Point,
 }

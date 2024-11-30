@@ -13,7 +13,7 @@
 use {
     crate::{event, private::AppState, App},
     std::rc::Rc,
-    vello::Scene,
+    vello::{kurbo::Point, Scene},
     winit::{
         application::ApplicationHandler,
         event::{StartCause, WindowEvent},
@@ -153,6 +153,15 @@ impl ApplicationHandler<UiEvent> for WinitApp<'_> {
                             device_id,
                             delta,
                             phase,
+                        });
+                    }
+                    WindowEvent::CursorMoved {
+                        device_id,
+                        position,
+                    } => {
+                        window.dispatch_event(&event::CursorMoved {
+                            device_id,
+                            position: Point::new(position.x, position.y),
                         });
                     }
                     _ => (),
