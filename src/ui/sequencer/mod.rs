@@ -1,4 +1,9 @@
-use yadaw_ui::{elem, element::Element, peniko::Color, CursorIcon};
+use yadaw_ui::{
+    elem::{self, ElementExt},
+    element::Element,
+    peniko::Color,
+    CursorIcon,
+};
 
 /// Builds the sequencer UI.
 pub fn build() -> impl Element {
@@ -18,14 +23,9 @@ pub fn build() -> impl Element {
 }
 
 fn rect(color: Color, width: f64, height: f64) -> impl Element {
-    elem::WithCursor::new(
-        elem::WithSize::new(
-            elem::ShapeElement::<elem::shapes::RoundedRectangle>::default()
-                .with_brush(color)
-                .with_radius(elem::Length::Pixels(10.0)),
-        )
-        .with_width(elem::Length::Pixels(width))
-        .with_height(elem::Length::Pixels(height)),
-    )
-    .with_cursor(CursorIcon::Pointer)
+    elem::ShapeElement::<elem::shapes::RoundedRectangle>::default()
+        .with_brush(color)
+        .with_radius(elem::Length::Pixels(10.0))
+        .with_default_size(elem::Length::Pixels(width), elem::Length::Pixels(height))
+        .with_cursor(CursorIcon::Pointer)
 }

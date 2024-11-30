@@ -7,7 +7,7 @@ use {
 };
 
 /// An element that constrains the size of its child element.
-pub struct WithSize<E: ?Sized> {
+pub struct WithDefaultSize<E: ?Sized> {
     /// The new width of the child element.
     pub new_width: Option<Length>,
     /// The new height of the child element.
@@ -17,8 +17,8 @@ pub struct WithSize<E: ?Sized> {
     pub child: E,
 }
 
-impl<E> WithSize<E> {
-    /// Creates a new [`WithSize`] element with the provided child.
+impl<E> WithDefaultSize<E> {
+    /// Creates a new [`WithDefaultSize`] element with the provided child.
     pub fn new(child: E) -> Self {
         Self {
             new_width: None,
@@ -40,7 +40,7 @@ impl<E> WithSize<E> {
     }
 }
 
-impl<E: ?Sized + Element> Element for WithSize<E> {
+impl<E: ?Sized + Element> Element for WithDefaultSize<E> {
     fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
         let new_width = self.new_width.as_ref().map(|width| width.resolve(cx));
         let new_height = self.new_height.as_ref().map(|height| height.resolve(cx));

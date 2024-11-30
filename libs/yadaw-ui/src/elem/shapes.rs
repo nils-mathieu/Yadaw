@@ -121,15 +121,6 @@ impl<S> ShapeElement<S> {
 }
 
 impl ShapeElement<RoundedRectangle> {
-    /// Sets the corner radius of the shape.
-    pub fn with_corner_radius(mut self, radius: Length) -> Self {
-        self.shape.top_left = radius.clone();
-        self.shape.top_right = radius.clone();
-        self.shape.bottom_left = radius.clone();
-        self.shape.bottom_right = radius;
-        self
-    }
-
     /// Sets the radius of all corners.
     pub fn with_radius(mut self, radius: Length) -> Self {
         self.shape.top_left = radius.clone();
@@ -229,6 +220,18 @@ pub struct WithBackground<S, E: ?Sized> {
 }
 
 impl<S: Shape, E> WithBackground<S, E> {
+    /// Sets the brush to use for drawing the background shape.
+    pub fn with_brush(mut self, brush: impl Into<Brush>) -> Self {
+        self.background.brush = brush.into();
+        self
+    }
+
+    /// Sets the transformation to apply to the brush.
+    pub fn with_brush_transform(mut self, brush_transform: Affine) -> Self {
+        self.background.brush_transform = Some(brush_transform);
+        self
+    }
+
     /// Sets whether to clip the shape to the bounds of the element.
     pub fn with_clip_child(mut self, clip_child: bool) -> Self {
         self.clip_child = clip_child;
@@ -244,6 +247,41 @@ impl<S: Shape, E> WithBackground<S, E> {
     /// Sets the transformation to apply to the background brush.
     pub fn with_background_brush_transform(mut self, brush_transform: Affine) -> Self {
         self.background.brush_transform = Some(brush_transform);
+        self
+    }
+}
+
+impl<E> WithBackground<RoundedRectangle, E> {
+    /// Sets the radius of all corners.
+    pub fn with_radius(mut self, radius: Length) -> Self {
+        self.background.shape.top_left = radius.clone();
+        self.background.shape.top_right = radius.clone();
+        self.background.shape.bottom_left = radius.clone();
+        self.background.shape.bottom_right = radius;
+        self
+    }
+
+    /// Sets the radius of the top-left corner.
+    pub fn with_top_left_radius(mut self, radius: Length) -> Self {
+        self.background.shape.top_left = radius;
+        self
+    }
+
+    /// Sets the radius of the top-right corner.
+    pub fn with_top_right_radius(mut self, radius: Length) -> Self {
+        self.background.shape.top_right = radius;
+        self
+    }
+
+    /// Sets the radius of the bottom-left corner.
+    pub fn with_bottom_left_radius(mut self, radius: Length) -> Self {
+        self.background.shape.bottom_left = radius;
+        self
+    }
+
+    /// Sets the radius of the bottom-right corner.
+    pub fn with_bottom_right_radius(mut self, radius: Length) -> Self {
+        self.background.shape.bottom_right = radius;
         self
     }
 }

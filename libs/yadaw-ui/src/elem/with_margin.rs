@@ -39,28 +39,28 @@ impl<E> WithMargin<E> {
 
     /// Sets the top margin.
     #[inline]
-    pub fn with_top_margin(mut self, top: Length) -> Self {
+    pub fn with_margin_top(mut self, top: Length) -> Self {
         self.top = top;
         self
     }
 
     /// Sets the right margin.
     #[inline]
-    pub fn with_right_margin(mut self, right: Length) -> Self {
+    pub fn with_margin_right(mut self, right: Length) -> Self {
         self.right = right;
         self
     }
 
     /// Sets the bottom margin.
     #[inline]
-    pub fn with_bottom_margin(mut self, bottom: Length) -> Self {
+    pub fn with_margin_bottom(mut self, bottom: Length) -> Self {
         self.bottom = bottom;
         self
     }
 
     /// Sets the left margin.
     #[inline]
-    pub fn with_left_margin(mut self, left: Length) -> Self {
+    pub fn with_margin_left(mut self, left: Length) -> Self {
         self.left = left;
         self
     }
