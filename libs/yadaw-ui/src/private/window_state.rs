@@ -18,6 +18,7 @@ use {
     },
     winit::{
         dpi::PhysicalSize,
+        keyboard::ModifiersState,
         window::{Cursor, Window as OsWindow},
     },
 };
@@ -122,6 +123,12 @@ pub struct WindowState {
     /// This is used to scale the window's content to match the actual size of the window
     /// on high-DPI displays.
     scale_factor: Cell<f64>,
+    /// The last position reported by the cursor.
+    last_reported_cursor_position: Cell<Option<Point>>,
+    /// The current keyboard modifiers state.
+    modifiers: Cell<ModifiersState>,
+    /// Whether the cursor is currently inside the window.
+    cursor_inside: Cell<bool>,
 
     /// The stack of cursors that are currently being used.
     ///
@@ -145,6 +152,9 @@ impl WindowState {
             root_element: Cell::new(Some(Box::new(crate::elem::Empty::default()))),
             scale_factor: Cell::new(scale_factor),
             cursor_stack: RefCell::new(CursorStack::default()),
+            cursor_inside: Cell::new(false),
+            last_reported_cursor_position: Cell::new(None),
+            modifiers: Cell::new(ModifiersState::empty()),
         })
     }
 
@@ -184,6 +194,7 @@ impl WindowState {
             clip_rect: size.to_rect(),
             parent_size: size,
             scale_factor: self.scale_factor.get(),
+            cursor_absent: !self.cursor_inside.get(),
             window: Window::from_state(Rc::downgrade(self)),
             app: App::from_state(self.app.clone()),
         }
@@ -308,5 +319,35 @@ impl WindowState {
     /// Removes the cursor with the provided ID from the cursor stack.
     pub fn pop_cursor(&self, id: LiveCursorId) {
         self.cursor_stack.borrow_mut().pop_cursor(id);
+    }
+
+    /// Sets the last reported cursor position.
+    #[inline]
+    pub fn set_last_reported_cursor_position(&self, position: Option<Point>) {
+        self.last_reported_cursor_position.set(position);
+    }
+
+    /// Returns the last reported cursor position.
+    #[inline]
+    pub fn last_reported_cursor_position(&self) -> Option<Point> {
+        self.last_reported_cursor_position.get()
+    }
+
+    /// Sets the modifiers state.
+    #[inline]
+    pub fn set_modifiers(&self, modifiers: ModifiersState) {
+        self.modifiers.set(modifiers);
+    }
+
+    /// Returns the current modifiers state.
+    #[inline]
+    pub fn modifiers(&self) -> ModifiersState {
+        self.modifiers.get()
+    }
+
+    /// Sets whether the cursor is currently inside the window.
+    #[inline]
+    pub fn set_cursor_inside(&self, inside: bool) {
+        self.cursor_inside.set(inside);
     }
 }

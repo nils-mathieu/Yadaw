@@ -159,10 +159,21 @@ impl ApplicationHandler<UiEvent> for WinitApp<'_> {
                         device_id,
                         position,
                     } => {
+                        let position = Point::new(position.x, position.y);
+                        window.set_last_reported_cursor_position(Some(position));
                         window.dispatch_event(&event::CursorMoved {
                             device_id,
-                            position: Point::new(position.x, position.y),
+                            position,
                         });
+                    }
+                    WindowEvent::CursorEntered { .. } => {
+                        window.set_cursor_inside(true);
+                    }
+                    WindowEvent::CursorLeft { .. } => {
+                        window.set_cursor_inside(false);
+                    }
+                    WindowEvent::ModifiersChanged(modifiers) => {
+                        window.set_modifiers(modifiers.state());
                     }
                     _ => (),
                 }

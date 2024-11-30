@@ -2,6 +2,8 @@
 //!
 //! [`Element`]: crate::element::Element
 
+pub mod utils;
+
 pub mod shapes;
 pub use self::shapes::{ClipShape, ShapeElement, WithBackground};
 
@@ -24,7 +26,7 @@ mod with_scroll;
 pub use self::with_scroll::WithScroll;
 
 mod events;
-pub use self::events::{CatchEvent, HookEvents};
+pub use self::events::{CatchEvent, HookAnimation, HookEvents};
 
 mod with_default_size;
 pub use self::with_default_size::WithDefaultSize;
@@ -58,6 +60,17 @@ pub trait ElementExt: Sized + Element {
         F: FnMut(&mut Self, &ElemCtx, &T) -> EventResult,
     {
         CatchEvent::new(f, self)
+    }
+
+    /// Hooks a function in the rendering logic of the element, allowing for custom animations
+    /// effects.
+    ///
+    /// The animation must be initiated by calling [`start_animation`](HookAnimation::start_animation).
+    fn hook_animation<F>(self, f: F) -> HookAnimation<F, Self>
+    where
+        F: FnMut(&mut Self, &ElemCtx, f64) -> bool,
+    {
+        HookAnimation::new(f, self)
     }
 
     /// Makes sure that the element has a default size.

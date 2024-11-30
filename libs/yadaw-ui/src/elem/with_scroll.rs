@@ -1,5 +1,6 @@
 use {
     crate::{
+        elem::utils::exp_decay,
         element::{ElemCtx, Element, Event, EventResult, Metrics, SetSize},
         event,
     },
@@ -197,30 +198,27 @@ where
 
     #[inline]
     fn render(&mut self, cx: &ElemCtx, scene: &mut Scene) {
-        if self.target_scroll_amount != self.inner.scroll_amount {
+        if let Some(last_instant) = self.last_instant {
+            let dt = cx.app().now().duration_since(last_instant).as_secs_f64();
+
             let dist = self.target_scroll_amount - self.inner.scroll_amount;
             if dist.x.abs() < 0.5 && dist.y.abs() < 0.5 {
                 self.inner.set_scroll_amount(cx, self.target_scroll_amount);
+                self.last_instant = None;
             } else {
-                let dt = self.last_instant.map_or(0.0, |instant| {
-                    cx.app().now().duration_since(instant).as_secs_f64()
-                });
-                self.last_instant = Some(cx.app().now());
-
                 self.inner.set_scroll_amount(
                     cx,
                     exp_decay(
                         self.inner.scroll_amount,
                         self.target_scroll_amount,
-                        self.smooth_scroll_decay,
-                        dt,
+                        self.smooth_scroll_decay * dt,
                     ),
                 );
+
+                self.last_instant = Some(cx.app().now());
             }
 
             cx.window().request_redraw();
-        } else {
-            self.last_instant = None;
         }
 
         self.inner.render(cx, scene);
@@ -232,35 +230,43 @@ where
     }
 
     fn event(&mut self, cx: &ElemCtx, event: &dyn Event) -> EventResult {
+        if self.inner.event(cx, event).is_handled() {
+            return EventResult::Handled;
+        }
+
         if self.inner.scroll_x || self.inner.scroll_y {
             if let Some(event) = event.downcast::<event::WheelInput>() {
-                let mut delta = match event.delta {
-                    MouseScrollDelta::LineDelta(x, y) => {
-                        Vec2::new(x as f64, y as f64) * self.line_size * cx.scale_factor()
+                if !cx.is_cursor_absent()
+                    && cx
+                        .window()
+                        .last_reported_cursor_position()
+                        .is_some_and(|pos| self.inner.hit_test(cx, pos))
+                {
+                    let mut delta = match event.delta {
+                        MouseScrollDelta::LineDelta(x, y) => {
+                            Vec2::new(x as f64, y as f64) * self.line_size * cx.scale_factor()
+                        }
+                        MouseScrollDelta::PixelDelta(delta) => Vec2::new(delta.x, delta.y),
+                    };
+
+                    if !self.inner.scroll_x {
+                        delta.x = 0.0;
                     }
-                    MouseScrollDelta::PixelDelta(delta) => Vec2::new(delta.x, delta.y),
-                };
+                    if !self.inner.scroll_y {
+                        delta.y = 0.0;
+                    }
 
-                if !self.inner.scroll_x {
-                    delta.x = 0.0;
+                    self.target_scroll_amount = self
+                        .inner
+                        .clamp_scroll_amount(self.target_scroll_amount + delta, cx);
+
+                    self.last_instant = Some(cx.app().now());
+                    cx.window().request_redraw();
+                    return EventResult::Handled;
                 }
-                if !self.inner.scroll_y {
-                    delta.y = 0.0;
-                }
-
-                self.target_scroll_amount = self
-                    .inner
-                    .clamp_scroll_amount(self.target_scroll_amount + delta, cx);
-
-                cx.window().request_redraw();
-                return EventResult::Handled;
             }
         }
 
-        self.inner.event(cx, event)
+        EventResult::Ignored
     }
-}
-
-fn exp_decay(a: Vec2, b: Vec2, k: f64, dt: f64) -> Vec2 {
-    b + (a - b) * (-dt * k).exp()
 }

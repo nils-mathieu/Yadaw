@@ -19,6 +19,13 @@ pub struct ElemCtx {
     /// The current scale factor of the element.
     pub(crate) scale_factor: f64,
 
+    /// Contains whether the cursor is currently absent from the current
+    /// element tree.
+    ///
+    /// This happens either because it is outside of the window, or because it
+    /// is outside of the current clipping shape.
+    pub(crate) cursor_absent: bool,
+
     /// The window handle that the element is a part of.
     pub(crate) window: Window,
 
@@ -27,27 +34,12 @@ pub struct ElemCtx {
 }
 
 impl ElemCtx {
-    /// Re-creates a new [`ElemCtx`] with the same properties as this one, but with different
-    /// element-specific properties.
-    pub fn inherit_all(&self, clip_rect: Rect, parent_size: Size, scale_factor: f64) -> Self {
-        Self {
-            clip_rect,
-            parent_size,
-            scale_factor,
-            window: self.window.clone(),
-            app: self.app.clone(),
-        }
-    }
-
     /// Re-creates a new [`ElemCtx`] with the same properties as this one, but with a different
     /// parent size.
     pub fn inherit_parent_size(&self, parent_size: Size) -> Self {
         Self {
-            clip_rect: self.clip_rect,
             parent_size,
-            scale_factor: self.scale_factor,
-            window: self.window.clone(),
-            app: self.app.clone(),
+            ..self.clone()
         }
     }
 
@@ -56,10 +48,7 @@ impl ElemCtx {
     pub fn inherit_clip_rect(&self, clip_rect: Rect) -> Self {
         Self {
             clip_rect,
-            parent_size: self.parent_size,
-            scale_factor: self.scale_factor,
-            window: self.window.clone(),
-            app: self.app.clone(),
+            ..self.clone()
         }
     }
 
@@ -67,11 +56,17 @@ impl ElemCtx {
     /// scale factor.
     pub fn inherit_scale_factor(&self, scale_factor: f64) -> Self {
         Self {
-            clip_rect: self.clip_rect,
-            parent_size: self.parent_size,
             scale_factor,
-            window: self.window.clone(),
-            app: self.app.clone(),
+            ..self.clone()
+        }
+    }
+
+    /// Re-creates a new [`ElemCtx`] with the same properties as this one, but with a different
+    /// cursor absent state.
+    pub fn inherit_cursor_absent(&self, yes: bool) -> Self {
+        Self {
+            cursor_absent: yes,
+            ..self.clone()
         }
     }
 
@@ -95,6 +90,15 @@ impl ElemCtx {
     #[inline]
     pub fn scale_factor(&self) -> f64 {
         self.scale_factor
+    }
+
+    /// Returns whether the cursor is currently absent from the current element tree.
+    ///
+    /// This happens either because it is outside of the window, or because it is outside of the
+    /// current clipping shape.
+    #[inline]
+    pub fn is_cursor_absent(&self) -> bool {
+        self.cursor_absent
     }
 
     /// Returns the window handle that the element is a part of.

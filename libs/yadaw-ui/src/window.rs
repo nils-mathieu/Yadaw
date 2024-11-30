@@ -7,7 +7,8 @@ use {
         fmt::Debug,
         rc::{Rc, Weak},
     },
-    vello::peniko::Color,
+    vello::{kurbo::Point, peniko::Color},
+    winit::keyboard::ModifiersState,
 };
 
 pub use winit::window::{Cursor, CursorIcon, CursorIconParseError, CustomCursor};
@@ -120,6 +121,20 @@ impl Window {
     #[track_caller]
     pub fn pop_cursor(&self, cursor: LiveCursor) {
         self.state().pop_cursor(cursor.0);
+    }
+
+    /// Returns the last reported cursor position.
+    ///
+    /// The cursor position is relative to the window's top-left corner (of the client area).
+    #[track_caller]
+    pub fn last_reported_cursor_position(&self) -> Option<Point> {
+        self.state().last_reported_cursor_position()
+    }
+
+    /// Returns the current modifiers state.
+    #[track_caller]
+    pub fn modifiers(&self) -> ModifiersState {
+        self.state().modifiers()
     }
 }
 
