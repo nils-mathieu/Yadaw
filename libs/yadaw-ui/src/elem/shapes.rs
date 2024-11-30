@@ -187,14 +187,12 @@ impl<S: ?Sized + ToShape> Element for ShapeElement<S> {
 
     #[inline]
     fn render(&mut self, cx: &ElemCtx, scene: &mut Scene) {
-        let shape = self.to_shape(cx);
-
         scene.fill(
             Fill::NonZero,
             Affine::IDENTITY,
             &self.brush,
             self.brush_transform,
-            &shape,
+            &self.to_shape(cx),
         );
     }
 
@@ -219,7 +217,7 @@ pub struct WithBackground<S, E: ?Sized> {
     pub child: E,
 }
 
-impl<S: Shape, E> WithBackground<S, E> {
+impl<S, E> WithBackground<S, E> {
     /// Sets the brush to use for drawing the background shape.
     pub fn with_brush(mut self, brush: impl Into<Brush>) -> Self {
         self.background.brush = brush.into();
@@ -286,17 +284,27 @@ impl<E> WithBackground<RoundedRectangle, E> {
     }
 }
 
+impl<S, E: ?Sized> WithBackground<S, E> {
+    fn child_ctx(&self, cx: &ElemCtx) -> ElemCtx {
+        if self.clip_child {
+            cx.inherit_clip_rect(Rect::from_origin_size(
+                self.background.position,
+                self.background.size,
+            ))
+        } else {
+            cx.clone()
+        }
+    }
+}
+
 impl<S: ToShape, E: ?Sized + Element> Element for WithBackground<S, E> {
     #[inline]
     fn metrics(&mut self, cx: &ElemCtx) -> Metrics {
-        self.child.metrics(cx)
+        self.child.metrics(&self.child_ctx(cx))
     }
 
     fn render(&mut self, cx: &ElemCtx, scene: &mut Scene) {
-        let child_cx = cx.inherit_clip_rect(Rect::from_origin_size(
-            self.background.position,
-            self.background.size,
-        ));
+        let child_cx = self.child_ctx(cx);
 
         self.background.render(cx, scene);
 
@@ -317,42 +325,26 @@ impl<S: ToShape, E: ?Sized + Element> Element for WithBackground<S, E> {
     }
 
     fn hit_test(&mut self, cx: &ElemCtx, point: Point) -> bool {
-        let child_cx = cx.inherit_clip_rect(Rect::from_origin_size(
-            self.background.position,
-            self.background.size,
-        ));
-
+        let child_cx = self.child_ctx(cx);
         self.child.hit_test(&child_cx, point) || self.background.hit_test(cx, point)
     }
 
     #[inline]
     fn event(&mut self, cx: &ElemCtx, event: &dyn Event) -> EventResult {
-        let child_cx = cx.inherit_clip_rect(Rect::from_origin_size(
-            self.background.position,
-            self.background.size,
-        ));
-
+        let child_cx = self.child_ctx(cx);
         self.child.event(&child_cx, event)
     }
 
     #[inline]
     fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
-        let child_cx = cx.inherit_clip_rect(Rect::from_origin_size(
-            self.background.position,
-            self.background.size,
-        ));
-
+        let child_cx = self.child_ctx(cx);
         self.child.set_size(&child_cx, size);
-        self.background.size = size.fallback(self.child.metrics(&child_cx).size);
+        self.background.size = size.or_fallback(self.child.metrics(&child_cx).size);
     }
 
     #[inline]
     fn set_position(&mut self, cx: &ElemCtx, position: Point) {
-        let child_cx = cx.inherit_clip_rect(Rect::from_origin_size(
-            self.background.position,
-            self.background.size,
-        ));
-
+        let child_cx = self.child_ctx(cx);
         self.child.set_position(&child_cx, position);
         self.background.position = position;
     }

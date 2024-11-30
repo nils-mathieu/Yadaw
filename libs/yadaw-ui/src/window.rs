@@ -7,6 +7,7 @@ use {
         fmt::Debug,
         rc::{Rc, Weak},
     },
+    vello::peniko::Color,
 };
 
 pub use winit::window::{Cursor, CursorIcon, CursorIconParseError, CustomCursor};
@@ -80,6 +81,14 @@ impl Window {
         if let Some(state) = self.0.upgrade() {
             state.close();
         }
+    }
+
+    /// Sets the clear color of the window.
+    ///
+    /// This color will be used to clear the window before rendering the next frame.
+    #[track_caller]
+    pub fn set_clear_color(&self, color: Color) {
+        self.state().set_clear_color(color);
     }
 
     /// Sets the title of the window.

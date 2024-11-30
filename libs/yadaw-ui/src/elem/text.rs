@@ -137,7 +137,7 @@ impl UnstyledText {
 
         Metrics {
             position: self.position,
-            size: self.size.fallback(layout_size),
+            size: self.size.or_fallback(layout_size),
             baseline: baseline as f64,
         }
     }
@@ -245,7 +245,7 @@ impl<Str> Text<Str, ()> {
             text,
             unstyled: UnstyledText {
                 position: Point::ZERO,
-                size: SetSize::unconstrained(),
+                size: SetSize::relaxed(),
                 alignment: Alignment::Start,
                 break_lines: true,
                 dirty_state: DirtyState::Text,
@@ -277,8 +277,8 @@ impl<Str> Text<Str, ()> {
 
 impl<Str> Text<Str, BasicTextStyle> {
     /// Sets the brush used to draw the text.
-    pub fn with_brush(mut self, brush: Brush) -> Self {
-        self.style.brush = brush;
+    pub fn with_brush(mut self, brush: impl Into<Brush>) -> Self {
+        self.style.brush = brush.into();
         self
     }
 

@@ -34,6 +34,7 @@ pub use self::with_cursor::WithCursor;
 
 use {
     crate::element::{ElemCtx, Element, Event, EventResult},
+    vello::peniko::Brush,
     winit::window::CursorIcon,
 };
 
@@ -72,9 +73,14 @@ pub trait ElementExt: Sized + Element {
         WithDefaultSize::new(self).with_width(width)
     }
 
-    /// Makes sure that the element can be scrolled through.
-    fn with_scroll(self) -> WithScroll<Self> {
-        WithScroll::new(self)
+    /// Make the element scrollable horizontally.
+    fn with_scroll_x(self) -> WithScroll<Self> {
+        WithScroll::new(self).with_scroll_x(true)
+    }
+
+    /// Make the element scrollable vertically.
+    fn with_scroll_y(self) -> WithScroll<Self> {
+        WithScroll::new(self).with_scroll_y(true)
     }
 
     /// Adds a margin around the element.
@@ -103,8 +109,11 @@ pub trait ElementExt: Sized + Element {
     }
 
     /// Adds a background shape to the element.
-    fn with_background(self) -> WithBackground<shapes::RoundedRectangle, Self> {
-        ShapeElement::default().with_child(self)
+    fn with_background(
+        self,
+        brush: impl Into<Brush>,
+    ) -> WithBackground<shapes::RoundedRectangle, Self> {
+        ShapeElement::default().with_child(self).with_brush(brush)
     }
 
     /// Sets the cursor that should be used when the element is hovered.

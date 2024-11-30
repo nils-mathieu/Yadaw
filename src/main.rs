@@ -17,6 +17,7 @@ fn main() {
         register_fonts(&app);
 
         let window = app.create_window(window_attributes());
+        window.set_clear_color(self::ui::BACKGROUND_COLOR);
 
         window.set_root_element(elem::HookEvents::new(
             |_, cx, ev| global_event_handler(cx, ev),

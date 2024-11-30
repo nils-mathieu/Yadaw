@@ -198,6 +198,12 @@ impl<E> LinearLayout<E> {
         self.with_align(Align::End)
     }
 
+    /// Sets the alignment of the children along the main axis to the end.
+    #[inline]
+    pub fn with_align_stretch(self) -> Self {
+        self.with_align(Align::Stretch)
+    }
+
     /// Sets the direction in which the children are placed.
     pub fn with_direction(mut self, direction: Direction) -> Self {
         self.direction = direction;
@@ -286,22 +292,26 @@ fn dyn_set_size(
     let mut children_main_length: f64 = 0.0;
     let mut children_cross_length: f64 = 0.0;
 
-    let mut child_set_size = size;
-    match direction {
-        Direction::Horizontal => child_set_size = child_set_size.without_height(),
-        Direction::Vertical => child_set_size = child_set_size.without_width(),
-    }
-    if align != Align::Stretch {
-        match direction {
-            Direction::Horizontal => child_set_size = child_set_size.without_width(),
-            Direction::Vertical => child_set_size = child_set_size.without_height(),
-        }
-    }
-
     children.with_children(&mut |child| {
         // We'll deal with grow factor later in a second pass.
         if child.grow.is_sign_positive() {
             return;
+        }
+
+        let align = child.align_self.unwrap_or(align);
+
+        let mut child_set_size = SetSize::relaxed();
+        if align == Align::Stretch {
+            match direction {
+                Direction::Horizontal => {
+                    let height = size.height().expect("Horizontal LinearLayout with a stretch-aligned child must have a specific height");
+                    child_set_size = child_set_size.with_height(height);
+                }
+                Direction::Vertical => {
+                    let width = size.width().expect("Vertical LinearLayout with a stretch-aligned child must have a specific width");
+                    child_set_size = child_set_size.with_width(width);
+                }
+            }
         }
 
         child.element.set_size(&child_cx, child_set_size);
@@ -323,16 +333,16 @@ fn dyn_set_size(
         let mut growth_factor = match direction {
             Direction::Horizontal => {
                 let width = size.width().expect(
-                    "Horizontal LinerLayout with a grow factor cannot have an unconstrained width",
+                    "Horizontal LinearLayout with a grow factor must have a specific width",
                 );
                 let remaining_space = width - children_main_length - gap * (has_growth - 1) as f64;
                 children_main_length = width;
                 remaining_space / total_grow
             }
             Direction::Vertical => {
-                let height = size.height().expect(
-                    "Vertical LinerLayout with a grow factor cannot have an unconstrained height",
-                );
+                let height = size
+                    .height()
+                    .expect("Vertical LinearLayout with a grow factor must have a specific height");
                 let remaining_space = height - children_main_length - gap * (has_growth - 1) as f64;
                 children_main_length = height;
                 remaining_space / total_grow
@@ -347,7 +357,22 @@ fn dyn_set_size(
                 return;
             }
 
-            let child_set_size = match direction {
+            let align = child.align_self.unwrap_or(align);
+
+            let mut child_set_size = SetSize::relaxed();
+            if align == Align::Stretch {
+                match direction {
+                    Direction::Horizontal => {
+                        let height = size.height().expect("Horizontal LinearLayout with a stretch-aligned child must have a specific height");
+                        child_set_size = child_set_size.with_height(height);
+                    }
+                    Direction::Vertical => {
+                        let width = size.width().expect("Vertical LinearLayout with a stretch-aligned child must have a specific width");
+                        child_set_size = child_set_size.with_width(width);
+                    }
+                }
+            }
+            child_set_size = match direction {
                 Direction::Horizontal => child_set_size.with_width(growth_factor * child.grow),
                 Direction::Vertical => child_set_size.with_height(growth_factor * child.grow),
             };
@@ -461,7 +486,7 @@ fn dyn_event(
 
 impl<E: Element> Element for LinearLayout<E> {
     fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
-        self.parent_size = size.or_infinity();
+        self.parent_size = size.or_zero();
 
         let (children_main_length, children_cross_length, size) = dyn_set_size(
             cx,

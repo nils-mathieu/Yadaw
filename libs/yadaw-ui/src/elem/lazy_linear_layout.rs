@@ -3,6 +3,7 @@ use {
         elem::{linear_layout::Direction, Length},
         element::{ElemCtx, Element, Event, EventResult, Metrics, SetSize},
     },
+    core::f64,
     vello::{
         kurbo::{Point, Size, Vec2},
         Scene,
@@ -18,6 +19,8 @@ struct ChildEntry<E: ?Sized> {
 /// An [`Element`] that lays out an infinite number of children
 /// in a single direction.
 pub struct LazyLinearLayout<E, F: ?Sized> {
+    /// The size of the parent element. Used to create child contexts.
+    parent_size: Size,
     /// The current position of the layout.
     position: Point,
     /// The size of the layout.
@@ -49,6 +52,7 @@ impl<E, F> LazyLinearLayout<E, F> {
         F: FnMut(usize) -> E,
     {
         Self {
+            parent_size: Size::ZERO,
             position: Point::ZERO,
             size: Size::ZERO,
             direction: Direction::Horizontal,
@@ -134,7 +138,7 @@ where
         let true_end = end.min(visible_end);
 
         let skipped_children = ((true_start - start) / stride).floor() as usize;
-        let visible_children = ((true_end - true_start) / stride).ceil() as usize + 1;
+        let visible_children = ((true_end - true_start) / stride).ceil() as usize;
 
         // Remove children that are no longer visible.
         self.children.retain(|child| {
@@ -175,33 +179,22 @@ where
     F: ?Sized + FnMut(usize) -> E,
 {
     fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
-        let child_cx = cx.inherit_parent_size(size.or_infinity());
+        assert!(
+            size.is_relaxed(),
+            "LazyLinearLayout does not support having a specific size ({:?})",
+            size,
+        );
+
+        self.parent_size = size.or_zero();
+        let child_cx = cx.inherit_parent_size(self.parent_size);
 
         let child_width = self.child_width.resolve(&child_cx);
         let child_height = self.child_height.resolve(&child_cx);
 
-        match self.direction {
-            Direction::Horizontal => {
-                assert!(
-                    size.has_specific_height(),
-                    "Horizontal LazyLinearLayout does not support having a specific height"
-                );
-
-                let width = size.width().unwrap_or(f64::INFINITY);
-
-                self.size = Size::new(width, child_height);
-            }
-            Direction::Vertical => {
-                assert!(
-                    size.has_specific_width(),
-                    "Vertical LazyLinearLayout does not support having a specific width"
-                );
-
-                let height = size.height().unwrap_or(f64::INFINITY);
-
-                self.size = Size::new(child_width, height);
-            }
-        }
+        self.size = match self.direction {
+            Direction::Horizontal => Size::new(f64::INFINITY, child_height),
+            Direction::Vertical => Size::new(child_width, f64::INFINITY),
+        };
 
         self.refresh_children(cx, &child_cx, &mut |this, _| {
             for child in &mut this.children {
@@ -214,7 +207,7 @@ where
     }
 
     fn set_position(&mut self, cx: &ElemCtx, position: Point) {
-        let child_cx = cx.inherit_parent_size(self.size);
+        let child_cx = cx.inherit_parent_size(self.parent_size);
 
         self.position = position;
 
@@ -236,7 +229,7 @@ where
     }
 
     fn render(&mut self, cx: &ElemCtx, scene: &mut Scene) {
-        let child_cx = cx.inherit_parent_size(self.size);
+        let child_cx = cx.inherit_parent_size(self.parent_size);
 
         for child in &mut self.children {
             child.element.render(&child_cx, scene);
@@ -244,7 +237,7 @@ where
     }
 
     fn hit_test(&mut self, cx: &ElemCtx, point: Point) -> bool {
-        let child_cx = cx.inherit_parent_size(self.size);
+        let child_cx = cx.inherit_parent_size(self.parent_size);
 
         self.children
             .iter_mut()
@@ -252,7 +245,7 @@ where
     }
 
     fn event(&mut self, cx: &ElemCtx, event: &dyn Event) -> EventResult {
-        let child_cx = cx.inherit_parent_size(self.size);
+        let child_cx = cx.inherit_parent_size(self.parent_size);
 
         for child in &mut self.children {
             if child.element.event(&child_cx, event).is_handled() {

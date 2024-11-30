@@ -4,6 +4,7 @@ use {
 };
 
 /// A context that is passed along to element methods.
+#[derive(Clone)]
 pub struct ElemCtx {
     /// The current clip rectangle. Anything outside of that rectangle will not be rendered.
     ///

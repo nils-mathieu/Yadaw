@@ -36,8 +36,8 @@ impl<E> WithScroll<E> {
         Self {
             size: Size::ZERO,
             position: Point::ZERO,
-            scroll_x: true,
-            scroll_y: true,
+            scroll_x: false,
+            scroll_y: false,
             scroll_amount: Vec2::ZERO,
             child,
         }
@@ -113,7 +113,7 @@ impl<E: ?Sized + Element> Element for WithScroll<E> {
             child_size = child_size.without_height();
         }
         self.child.set_size(cx, child_size);
-        self.size = size.fallback(self.child.metrics(cx).size);
+        self.size = size.or_fallback(self.child.metrics(cx).size);
 
         self.set_scroll_amount(cx, self.scroll_amount);
     }
@@ -259,7 +259,7 @@ where
             }
         }
 
-        EventResult::Ignored
+        self.inner.event(cx, event)
     }
 }
 

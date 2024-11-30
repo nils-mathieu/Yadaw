@@ -1,7 +1,7 @@
-use vello::kurbo::Size;
+use {std::fmt::Debug, vello::kurbo::Size};
 
 /// A way to set the size of an element.
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub struct SetSize {
     /// The width constraint.
     ///
@@ -15,7 +15,7 @@ pub struct SetSize {
 
 impl SetSize {
     /// Creates a new [`SetSize`] instance with no constraints.
-    pub fn unconstrained() -> Self {
+    pub const fn relaxed() -> Self {
         Self {
             width: -1.0,
             height: -1.0,
@@ -95,6 +95,12 @@ impl SetSize {
         self.height.is_sign_positive()
     }
 
+    /// Returns whether both constraints are relaxed.
+    #[inline]
+    pub fn is_relaxed(self) -> bool {
+        !self.has_specific_width() && !self.has_specific_height()
+    }
+
     /// Returns the width constraint stored in this [`SetSize`] instance.
     #[inline]
     pub fn width(self) -> Option<f64> {
@@ -131,7 +137,7 @@ impl SetSize {
 
     /// Returns the size stored in this [`SetSize`] instance, but falls back to `fallback` if the
     /// size is not specific.
-    pub fn fallback(self, fallback: Size) -> Size {
+    pub fn or_fallback(self, fallback: Size) -> Size {
         Size {
             width: self.width().unwrap_or(fallback.width),
             height: self.height().unwrap_or(fallback.height),
@@ -154,12 +160,10 @@ impl SetSize {
 
     /// Returns a [`Size`] that represents the constraints stored in this [`SetSize`] instance.
     ///
-    /// Unconstrained dimensions are returned as `f64::INFINITY`.
-    pub fn or_infinity(self) -> Size {
-        Size {
-            width: self.width().unwrap_or(f64::INFINITY),
-            height: self.height().unwrap_or(f64::INFINITY),
-        }
+    /// Unconstrained dimensions are returned as `0.0`.
+    #[inline]
+    pub fn or_zero(self) -> Size {
+        self.or_fallback(Size::ZERO)
     }
 
     /// Returns a [`SetSize`] that has the current constraints, or the constraints of `other` if
@@ -181,5 +185,14 @@ impl PartialEq for SetSize {
 impl From<Size> for SetSize {
     fn from(size: Size) -> Self {
         Self::from_specific(size)
+    }
+}
+
+impl Debug for SetSize {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SetSize")
+            .field("width", &self.width())
+            .field("height", &self.height())
+            .finish()
     }
 }

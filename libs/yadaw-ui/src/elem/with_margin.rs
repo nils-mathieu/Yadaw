@@ -101,10 +101,12 @@ impl<E: ?Sized + Element> Element for WithMargin<E> {
         let right = self.right.resolve(cx);
         let bottom = self.bottom.resolve(cx);
 
+        let child_metrics = self.child.metrics(cx);
+
         Metrics {
-            position: self.child.metrics(cx).position - Vec2::new(left, top),
-            size: self.child.metrics(cx).size + Size::new(left + right, top + bottom),
-            baseline: self.child.metrics(cx).baseline - bottom,
+            position: child_metrics.position - Vec2::new(left, top),
+            size: child_metrics.size + Size::new(left + right, top + bottom),
+            baseline: child_metrics.baseline - bottom,
         }
     }
 

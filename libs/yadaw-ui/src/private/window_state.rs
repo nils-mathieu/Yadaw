@@ -220,6 +220,14 @@ impl WindowState {
         f(&mut *guard.elem)
     }
 
+    /// Sets the clear color of the window.
+    ///
+    /// This requests a redraw.
+    pub fn set_clear_color(&self, color: Color) {
+        self.clear_color.set(color);
+        self.window.request_redraw();
+    }
+
     /// Notifies the window state that the size of the window has changed.
     pub fn set_size(&self, size: PhysicalSize<u32>) {
         self.size.set(size);
