@@ -3,7 +3,7 @@ use {
     std::{cell::RefCell, rc::Rc},
     yadaw_ui::{
         elem::{self, ElementExt},
-        element::{Element, EventResult},
+        element::{Element, EventResult, SetSize},
         kurbo::Vec2,
         parley::FontWeight,
         peniko::Color,
@@ -21,6 +21,7 @@ pub fn build() -> impl Element {
     elem::LinearLayout::<Box<dyn Element>>::default()
         .with_horizontal()
         .with_align_stretch()
+        .with_gap(elem::Length::Pixels(16.0))
         .with_child(
             elem::LazyLinearLayout::new(|index| {
                 elem::LinearLayout::default()
@@ -77,6 +78,45 @@ pub fn build() -> impl Element {
             .with_clip_rect()
             .with_radius(elem::Length::Pixels(16.0))
             .into_dyn_element(),
+        )
+        .with_child(
+            elem::linear_layout::Child::new(
+                elem::Canvas::<Box<dyn Element>>::default()
+                    .with_child(
+                        elem::canvas::Child::new(
+                            elem::ShapeElement::<elem::shapes::Rectangle>::default()
+                                .with_brush(Color::ALICE_BLUE)
+                                .with_default_width(elem::Length::Pixels(100.0))
+                                .with_default_height(elem::Length::Pixels(100.0))
+                                .catch_event(|el, cx, ev: &SequencerEvent| {
+                                    if let SequencerEvent::SetZoom(zoom) = ev {
+                                        el.new_width = Some(elem::Length::Pixels(zoom.x));
+                                        el.new_height = Some(elem::Length::Pixels(zoom.y));
+                                        el.set_size(cx, SetSize::relaxed());
+                                        cx.window().request_redraw();
+                                    }
+
+                                    EventResult::Continue
+                                })
+                                .into_dyn_element(),
+                        )
+                        .with_position(Vec2::new(50.0, 50.0)),
+                    )
+                    .with_scroll_x()
+                    .with_scroll_y()
+                    .catch_event(|el, cx, ev: &SequencerEvent| {
+                        if let SequencerEvent::SetDragOffset(off) = ev {
+                            el.set_scroll_amount(cx, *off);
+                            cx.window().request_redraw();
+                        }
+
+                        EventResult::Continue
+                    })
+                    .with_clip_rect()
+                    .with_radius(elem::Length::Pixels(16.0))
+                    .into_dyn_element(),
+            )
+            .with_grow(1.0),
         )
         .with_margin(elem::Length::Pixels(16.0))
         .with_block_rect()

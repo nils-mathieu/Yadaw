@@ -247,9 +247,9 @@ impl SequencerUiState {
             }
         } else if let Some(ev) = ev.downcast::<event::PinchGesture>() {
             let amount = if cx.window().modifiers().shift_key() {
-                Vec2::new(ev.delta, 0.0) * 30.0
+                Vec2::new(ev.delta, 0.0) * 50.0
             } else {
-                Vec2::new(0.0, ev.delta) * 30.0
+                Vec2::new(0.0, ev.delta) * 50.0
             };
 
             self.zoom = self.target_zoom;

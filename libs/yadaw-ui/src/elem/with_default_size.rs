@@ -28,13 +28,13 @@ impl<E> WithDefaultSize<E> {
     }
 
     /// Sets the new width of the child element.
-    pub fn with_width(mut self, width: Length) -> Self {
+    pub fn with_default_width(mut self, width: Length) -> Self {
         self.new_width = Some(width);
         self
     }
 
     /// Sets the new height of the child element.
-    pub fn with_height(mut self, height: Length) -> Self {
+    pub fn with_default_height(mut self, height: Length) -> Self {
         self.new_height = Some(height);
         self
     }

@@ -13,6 +13,9 @@ pub use self::text::Text;
 pub mod linear_layout;
 pub use self::linear_layout::LinearLayout;
 
+pub mod canvas;
+pub use self::canvas::Canvas;
+
 mod with_margin;
 pub use self::with_margin::WithMargin;
 
@@ -36,6 +39,9 @@ pub use self::with_cursor::WithCursor;
 
 mod empty;
 pub use self::empty::Empty;
+
+mod with_data;
+pub use self::with_data::WithData;
 
 use {
     crate::element::{ElemCtx, Element, Event, EventResult},
@@ -76,28 +82,28 @@ pub trait ElementExt: Sized + Element {
     /// Makes sure that the element has a default size.
     fn with_default_size(self, width: Length, height: Length) -> WithDefaultSize<Self> {
         WithDefaultSize::new(self)
-            .with_width(width)
-            .with_height(height)
+            .with_default_width(width)
+            .with_default_height(height)
     }
 
     /// Makes sure that the element has a default height.
     fn with_default_height(self, height: Length) -> WithDefaultSize<Self> {
-        WithDefaultSize::new(self).with_height(height)
+        WithDefaultSize::new(self).with_default_height(height)
     }
 
     /// Makes sure that the element has a default width.
     fn with_default_width(self, width: Length) -> WithDefaultSize<Self> {
-        WithDefaultSize::new(self).with_width(width)
+        WithDefaultSize::new(self).with_default_width(width)
     }
 
     /// Make the element scrollable horizontally.
     fn with_scroll_x(self) -> WithScroll<Self> {
-        WithScroll::new(self).with_scroll_x(true)
+        WithScroll::new(self).with_scroll_x()
     }
 
     /// Make the element scrollable vertically.
     fn with_scroll_y(self) -> WithScroll<Self> {
-        WithScroll::new(self).with_scroll_y(true)
+        WithScroll::new(self).with_scroll_y()
     }
 
     /// Adds a margin around the element.
@@ -164,6 +170,12 @@ pub trait ElementExt: Sized + Element {
     #[inline]
     fn with_block_rect(self) -> BlockShape<self::shapes::RoundedRectangle, Self> {
         BlockShape::new(Default::default(), self)
+    }
+
+    /// Associates some data with the element.
+    #[inline]
+    fn with_data<T>(self, data: T) -> WithData<T, Self> {
+        WithData { data, child: self }
     }
 }
 

@@ -45,14 +45,14 @@ impl<E> WithScroll<E> {
     }
 
     /// Sets whether the element should be able to scroll vertically.
-    pub fn with_scroll_x(mut self, scroll_x: bool) -> Self {
-        self.scroll_x = scroll_x;
+    pub fn with_scroll_x(mut self) -> Self {
+        self.scroll_x = true;
         self
     }
 
     /// Sets whether the element should be able to scroll horizontally.
-    pub fn with_scroll_y(mut self, scroll_y: bool) -> Self {
-        self.scroll_y = scroll_y;
+    pub fn with_scroll_y(mut self) -> Self {
+        self.scroll_y = true;
         self
     }
 
@@ -85,7 +85,7 @@ impl<E: ?Sized + Element> WithScroll<E> {
         if self.scroll_x {
             scroll_amount.x = scroll_amount
                 .x
-                .max(child_metrics.size.width - self.size.width)
+                .max(self.size.width - child_metrics.size.width)
                 .min(0.0);
         }
 
