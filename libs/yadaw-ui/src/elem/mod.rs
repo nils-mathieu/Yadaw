@@ -159,6 +159,11 @@ pub trait ElementExt: Sized + Element {
         Box::new(self)
     }
 
+    /// Turns this [`Element`] into a [`linear_layout::Child`] with the provided grow factor.
+    fn with_grow(self, grow: f64) -> linear_layout::Child<Self> {
+        linear_layout::Child::new(self).with_grow(grow)
+    }
+
     /// Creates a reference-counted [`RefCell`] containing the element.
     #[inline]
     fn into_ref(self) -> Rc<RefCell<Self>> {
