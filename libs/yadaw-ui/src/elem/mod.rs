@@ -159,17 +159,6 @@ pub trait ElementExt: Sized + Element {
         Rc::new(RefCell::new(self))
     }
 
-    /// Creates a reference-counted [`RefCell`] containing the element, and calls a function with a
-    /// reference to the cell.
-    ///
-    /// This can be used to easily get a reference to the element without having to create
-    /// a temporary variable for it.
-    fn into_ref_bind(self, with: impl FnOnce(&Rc<RefCell<Self>>)) -> Rc<RefCell<Self>> {
-        let rc = self.into_ref();
-        with(&rc);
-        rc
-    }
-
     /// Wraps the element in a block pointer shape, making sure that pointer events are blocked
     /// at that element.
     #[inline]

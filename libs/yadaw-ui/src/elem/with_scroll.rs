@@ -74,7 +74,6 @@ impl<E: ?Sized + Element> WithScroll<E> {
         self.scroll_amount = self.clamp_scroll_amount(new, cx);
         self.child
             .set_position(cx, self.position + self.scroll_amount);
-        cx.window().request_redraw();
     }
 
     /// Clamps the provided scroll amount to the bounds of the child element.
