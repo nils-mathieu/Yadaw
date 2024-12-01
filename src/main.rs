@@ -38,7 +38,7 @@ fn global_event_handler(cx: &ElemCtx, event: &dyn Event) -> EventResult {
         }
     }
 
-    EventResult::Ignored
+    EventResult::Continue
 }
 
 /// Builds the [`WindowAttributes`] that will be used to create the main window

@@ -175,6 +175,21 @@ impl ApplicationHandler<UiEvent> for WinitApp<'_> {
                     WindowEvent::ModifiersChanged(modifiers) => {
                         window.set_modifiers(modifiers.state());
                     }
+                    WindowEvent::PinchGesture {
+                        device_id,
+                        mut delta,
+                        phase,
+                    } => {
+                        if delta.is_nan() {
+                            delta = 0.0;
+                        }
+
+                        window.dispatch_event(&event::PinchGesture {
+                            device_id,
+                            delta,
+                            phase,
+                        });
+                    }
                     _ => (),
                 }
             }

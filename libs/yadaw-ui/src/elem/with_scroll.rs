@@ -229,8 +229,8 @@ where
     }
 
     fn event(&mut self, cx: &ElemCtx, event: &dyn Event) -> EventResult {
-        if self.inner.event(cx, event).is_handled() {
-            return EventResult::Handled;
+        if self.inner.event(cx, event).should_stop_propagation() {
+            return EventResult::StopPropagation;
         }
 
         if self.inner.scroll_x || self.inner.scroll_y {
@@ -261,11 +261,11 @@ where
 
                     self.last_instant = Some(cx.app().now());
                     cx.window().request_redraw();
-                    return EventResult::Handled;
+                    return EventResult::StopPropagation;
                 }
             }
         }
 
-        EventResult::Ignored
+        EventResult::Continue
     }
 }

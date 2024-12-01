@@ -45,22 +45,23 @@ impl<T: 'static> Event for T {
 /// The result of handling an event.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum EventResult {
-    /// The event was handled by the element.
-    Handled,
-    /// The event was not handled.
-    Ignored,
+    /// Indicate sthat the event should stop propagating down the element tree.
+    StopPropagation,
+    /// The event was not handled, or at least, propagation should continue.
+    Continue,
 }
 
 impl EventResult {
-    /// Returns whether the [`EventResult`] represents a handled event.
+    /// Returns whether the [`EventResult`] indicates that the event should stop
+    /// propagating further down the element tree.
     #[inline]
-    pub const fn is_handled(self) -> bool {
-        matches!(self, Self::Handled)
+    pub const fn should_stop_propagation(self) -> bool {
+        matches!(self, Self::StopPropagation)
     }
 
-    /// Returns whether the [`EventResult`] represents an ignored event.
+    /// Returns whether the [`EventResult`] should continue propagating.
     #[inline]
-    pub const fn is_ignored(self) -> bool {
-        matches!(self, Self::Ignored)
+    pub const fn should_continue(self) -> bool {
+        matches!(self, Self::Continue)
     }
 }

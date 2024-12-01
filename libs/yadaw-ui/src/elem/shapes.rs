@@ -215,7 +215,7 @@ impl<S: ?Sized + ToShape> Element for ShapeElement<S> {
 
     #[inline]
     fn event(&mut self, _cx: &ElemCtx, _event: &dyn Event) -> EventResult {
-        EventResult::Ignored
+        EventResult::Continue
     }
 }
 

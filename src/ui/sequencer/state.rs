@@ -135,7 +135,7 @@ impl SequencerUiState {
 
         if let Some(ev) = ev.downcast::<event::WheelInput>() {
             if !hover {
-                return EventResult::Ignored;
+                return EventResult::Continue;
             }
 
             if cx.window().modifiers().control_key() {
@@ -176,16 +176,20 @@ impl SequencerUiState {
                 // SCROLLING/DRAGGING with mouse wheel
                 //
 
-                let mut amount = match ev.delta {
-                    MouseScrollDelta::LineDelta(dx, dy) => Vec2::new(dx as f64, dy as f64) * 60.0,
+                let amount = match ev.delta {
+                    MouseScrollDelta::LineDelta(dx, dy) => {
+                        let mut ret = Vec2::new(dx as f64, dy as f64) * 60.0;
+
+                        if cx.window().modifiers().shift_key() {
+                            std::mem::swap(&mut ret.x, &mut ret.y);
+                        }
+
+                        ret
+                    }
                     MouseScrollDelta::PixelDelta(delta) => Vec2::new(delta.x, delta.y),
                 };
 
                 let animate = matches!(ev.delta, MouseScrollDelta::LineDelta(..));
-
-                if cx.window().modifiers().shift_key() {
-                    std::mem::swap(&mut amount.x, &mut amount.y);
-                }
 
                 if !animate {
                     self.target_drag_offset = self.drag_offset;
@@ -203,10 +207,10 @@ impl SequencerUiState {
                 }
             }
 
-            return EventResult::Handled;
+            return EventResult::StopPropagation;
         } else if let Some(ev) = ev.downcast::<event::MouseInput>() {
             if !hover {
-                return EventResult::Ignored;
+                return EventResult::Continue;
             }
 
             if ev.button == MouseButton::Middle {
@@ -223,10 +227,8 @@ impl SequencerUiState {
                 }
             }
 
-            return EventResult::Handled;
-        }
-
-        if let Some(ev) = ev.downcast::<event::CursorMoved>() {
+            return EventResult::StopPropagation;
+        } else if let Some(ev) = ev.downcast::<event::CursorMoved>() {
             //
             // CONTINUE DRAGGING
             //
@@ -243,8 +245,21 @@ impl SequencerUiState {
                 child.event(cx, &SequencerEvent::SetDragOffset(self.drag_offset));
                 cx.window().request_redraw();
             }
+        } else if let Some(ev) = ev.downcast::<event::PinchGesture>() {
+            let amount = if cx.window().modifiers().shift_key() {
+                Vec2::new(ev.delta, 0.0) * 30.0
+            } else {
+                Vec2::new(0.0, ev.delta) * 30.0
+            };
+
+            self.zoom = self.target_zoom;
+            self.target_zoom += amount;
+            self.target_zoom.x = self.target_zoom.x.clamp(100.0, 1000.0);
+            self.target_zoom.y = self.target_zoom.y.clamp(32.0, 512.0);
+            self.zoom = self.target_zoom;
+            child.event(cx, &SequencerEvent::SetZoom(self.zoom));
         }
 
-        EventResult::Ignored
+        EventResult::Continue
     }
 }

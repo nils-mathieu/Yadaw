@@ -43,6 +43,6 @@ impl Element for Empty {
 
     #[inline]
     fn event(&mut self, _cx: &ElemCtx, _event: &dyn Event) -> EventResult {
-        EventResult::Ignored
+        EventResult::Continue
     }
 }

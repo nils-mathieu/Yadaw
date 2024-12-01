@@ -295,11 +295,15 @@ where
 
         let child_cx = cx.inherit_parent_size(self.size);
         for child in &mut self.children {
-            if child.element.event(&child_cx, event).is_handled() {
-                return EventResult::Handled;
+            if child
+                .element
+                .event(&child_cx, event)
+                .should_stop_propagation()
+            {
+                return EventResult::StopPropagation;
             }
         }
 
-        EventResult::Ignored
+        EventResult::Continue
     }
 }

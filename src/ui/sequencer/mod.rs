@@ -56,15 +56,15 @@ pub fn build() -> impl Element {
                     .into_dyn_element()
             })
             .with_direction_vertical()
-            .with_child_width(elem::Length::UnscaledPixels(300.0))
-            .with_child_height(elem::Length::UnscaledPixels(100.0))
+            .with_child_width(elem::Length::Pixels(300.0))
+            .with_child_height(elem::Length::Pixels(100.0))
             .with_gap(elem::Length::Pixels(16.0))
             .catch_event(|el, cx, ev: &SequencerEvent| {
                 if let SequencerEvent::SetZoom(zoom) = ev {
-                    el.set_child_height(elem::Length::UnscaledPixels(zoom.y));
+                    el.set_child_height(elem::Length::Pixels(zoom.y));
                     cx.window().request_redraw();
                 }
-                EventResult::Ignored
+                EventResult::Continue
             })
             .with_scroll_y()
             .catch_event(|el, cx, ev: &SequencerEvent| {
@@ -72,7 +72,7 @@ pub fn build() -> impl Element {
                     el.set_scroll_amount(cx, Vec2::new(0.0, off.y));
                     cx.window().request_redraw();
                 }
-                EventResult::Ignored
+                EventResult::Continue
             })
             .with_clip_rect()
             .with_radius(elem::Length::Pixels(16.0))
@@ -88,7 +88,7 @@ pub fn build() -> impl Element {
             if matches!(ev, SequencerEvent::StartAnimating) {
                 el.start_animation(cx);
             }
-            EventResult::Ignored
+            EventResult::Continue
         })
         .hook_events({
             let state = state.clone();

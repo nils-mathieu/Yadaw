@@ -54,8 +54,8 @@ where
 
     #[inline]
     fn event(&mut self, cx: &ElemCtx, event: &dyn Event) -> EventResult {
-        if (self.on_event)(&mut self.child, cx, event).is_handled() {
-            EventResult::Handled
+        if (self.on_event)(&mut self.child, cx, event).should_stop_propagation() {
+            EventResult::StopPropagation
         } else {
             self.child.event(cx, event)
         }
@@ -120,8 +120,8 @@ where
     #[inline]
     fn event(&mut self, cx: &ElemCtx, event: &dyn Event) -> EventResult {
         if let Some(event) = event.downcast() {
-            if (self.on_event)(&mut self.child, cx, event).is_handled() {
-                return EventResult::Handled;
+            if (self.on_event)(&mut self.child, cx, event).should_stop_propagation() {
+                return EventResult::StopPropagation;
             }
         }
 

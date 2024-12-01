@@ -37,3 +37,17 @@ pub struct CursorMoved {
     /// The new position of the cursor.
     pub position: Point,
 }
+
+/// An event indicating a pinch gesture.
+#[derive(Debug, Clone)]
+pub struct PinchGesture {
+    /// The ID of the device that was used to generate the event.
+    pub device_id: DeviceId,
+    /// The amount of movement.
+    ///
+    /// Negative values indicate minification, and values larger than one
+    /// will indicate magnification.
+    pub delta: f64,
+    /// The touch phase for the gesture.
+    pub phase: TouchPhase,
+}

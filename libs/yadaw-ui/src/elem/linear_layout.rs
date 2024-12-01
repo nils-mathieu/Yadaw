@@ -493,13 +493,17 @@ fn dyn_event(
 ) -> EventResult {
     let child_cx = cx.inherit_parent_size(parent_size);
 
-    let result =
-        children.any_children(&mut |child| child.element.event(&child_cx, event).is_handled());
+    let result = children.any_children(&mut |child| {
+        child
+            .element
+            .event(&child_cx, event)
+            .should_stop_propagation()
+    });
 
     if result {
-        EventResult::Handled
+        EventResult::StopPropagation
     } else {
-        EventResult::Ignored
+        EventResult::Continue
     }
 }
 
