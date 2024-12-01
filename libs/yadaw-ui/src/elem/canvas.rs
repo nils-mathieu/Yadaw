@@ -14,8 +14,6 @@ pub struct Child<E: ?Sized> {
 
     /// Whether the position of the child element has changed.
     position_dirty: bool,
-    /// Whether the size of the child element has changed.
-    size_dirty: bool,
 
     /// The concrete element.
     pub element: E,
@@ -27,7 +25,6 @@ impl<E> Child<E> {
         Self {
             position: Vec2::ZERO,
             position_dirty: true,
-            size_dirty: true,
             element,
         }
     }
@@ -47,16 +44,11 @@ impl<E: ?Sized + Element> Child<E> {
     ///
     /// This function does not check the `dirty` flag. But it does clear it.
     fn rebuild(&mut self, cx: &ElemCtx, origin: Point) {
-        if self.size_dirty {
-            self.element.set_size(cx, SetSize::relaxed());
-        }
-
         if self.position_dirty {
             self.element.set_position(cx, origin + self.position);
         }
 
         self.position_dirty = false;
-        self.size_dirty = false;
     }
 }
 
@@ -98,7 +90,7 @@ impl<E: Element> Canvas<E> {
             self.origin_changed = false;
         } else {
             for child in &mut self.children {
-                if child.position_dirty || child.size_dirty {
+                if child.position_dirty {
                     child.rebuild(cx, self.origin);
                 }
             }
@@ -117,6 +109,13 @@ impl<E> Default for Canvas<E> {
 }
 
 impl<E: Element> Element for Canvas<E> {
+    fn ready(&mut self, cx: &ElemCtx) {
+        for child in &mut self.children {
+            child.element.ready(cx);
+            child.element.set_size(cx, SetSize::relaxed());
+        }
+    }
+
     fn set_size(&mut self, _cx: &ElemCtx, size: SetSize) {
         assert!(
             size.is_relaxed(),

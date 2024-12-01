@@ -41,6 +41,11 @@ impl<E> WithCursor<E> {
 
 impl<E: ?Sized + Element> Element for WithCursor<E> {
     #[inline]
+    fn ready(&mut self, cx: &ElemCtx) {
+        self.child.ready(cx);
+    }
+
+    #[inline]
     fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
         self.child.set_size(cx, size);
     }

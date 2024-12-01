@@ -389,6 +389,11 @@ where
     Str: AsRef<str>,
 {
     #[inline]
+    fn ready(&mut self, cx: &ElemCtx) {
+        self.unstyled.build(cx, self.text.as_ref(), &mut self.style);
+    }
+
+    #[inline]
     fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
         self.unstyled.set_size(cx, size, &mut self.style);
     }

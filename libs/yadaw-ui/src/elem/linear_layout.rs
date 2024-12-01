@@ -508,6 +508,12 @@ fn dyn_event(
 }
 
 impl<E: Element> Element for LinearLayout<E> {
+    fn ready(&mut self, cx: &ElemCtx) {
+        self.children
+            .iter_mut()
+            .for_each(|child| child.element.ready(cx));
+    }
+
     fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
         self.parent_size = size.or_zero();
 

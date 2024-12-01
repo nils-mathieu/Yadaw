@@ -28,6 +28,11 @@ where
     E: Element,
 {
     #[inline]
+    fn ready(&mut self, cx: &ElemCtx) {
+        self.child.ready(cx);
+    }
+
+    #[inline]
     fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
         self.child.set_size(cx, size);
     }
@@ -92,6 +97,11 @@ where
     F: FnMut(&mut E, &ElemCtx, &T) -> EventResult,
     E: Element,
 {
+    #[inline]
+    fn ready(&mut self, cx: &ElemCtx) {
+        self.child.ready(cx);
+    }
+
     #[inline]
     fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
         self.child.set_size(cx, size);
@@ -173,6 +183,11 @@ where
     F: FnMut(&mut E, &ElemCtx, f64) -> bool,
     E: ?Sized + Element,
 {
+    #[inline]
+    fn ready(&mut self, cx: &ElemCtx) {
+        self.child.ready(cx);
+    }
+
     #[inline]
     fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
         self.child.set_size(cx, size);

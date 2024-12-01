@@ -14,6 +14,8 @@ pub struct Empty {
 }
 
 impl Element for Empty {
+    fn ready(&mut self, _cx: &ElemCtx) {}
+
     #[inline]
     fn set_size(&mut self, _cx: &ElemCtx, size: SetSize) {
         self.size = size.or_zero();

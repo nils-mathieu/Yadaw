@@ -76,6 +76,11 @@ impl<E> WithMargin<E> {
 }
 
 impl<E: ?Sized + Element> Element for WithMargin<E> {
+    #[inline]
+    fn ready(&mut self, cx: &ElemCtx) {
+        self.child.ready(cx);
+    }
+
     fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
         let top = self.top.resolve(cx);
         let right = self.right.resolve(cx);

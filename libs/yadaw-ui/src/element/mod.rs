@@ -19,6 +19,9 @@ use {
 
 /// Represents an element that can be rendered to the screen.
 pub trait Element {
+    /// Called once when the element is initialized.
+    fn ready(&mut self, cx: &ElemCtx);
+
     /// Sets the size of the element.
     ///
     /// After this function has been called, the element should be ready to be rendered at
@@ -129,6 +132,11 @@ pub trait Element {
 
 impl<E: ?Sized + Element> Element for Box<E> {
     #[inline]
+    fn ready(&mut self, cx: &ElemCtx) {
+        (**self).ready(cx)
+    }
+
+    #[inline]
     fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
         (**self).set_size(cx, size)
     }
@@ -160,6 +168,10 @@ impl<E: ?Sized + Element> Element for Box<E> {
 }
 
 impl<E: ?Sized + Element> Element for Rc<RefCell<E>> {
+    fn ready(&mut self, cx: &ElemCtx) {
+        self.borrow_mut().ready(cx)
+    }
+
     fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
         self.borrow_mut().set_size(cx, size)
     }

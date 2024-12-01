@@ -41,6 +41,11 @@ impl<E> WithDefaultSize<E> {
 }
 
 impl<E: ?Sized + Element> Element for WithDefaultSize<E> {
+    #[inline]
+    fn ready(&mut self, cx: &ElemCtx) {
+        self.child.ready(cx);
+    }
+
     fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
         let new_width = self.new_width.as_ref().map(|width| width.resolve(cx));
         let new_height = self.new_height.as_ref().map(|height| height.resolve(cx));

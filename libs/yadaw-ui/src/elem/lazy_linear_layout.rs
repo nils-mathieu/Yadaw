@@ -242,6 +242,8 @@ where
     E: Element,
     F: ?Sized + FnMut(usize) -> E,
 {
+    fn ready(&mut self, _cx: &ElemCtx) {}
+
     fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
         assert!(
             size.is_relaxed(),

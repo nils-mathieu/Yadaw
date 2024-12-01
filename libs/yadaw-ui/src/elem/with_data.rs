@@ -15,6 +15,11 @@ pub struct WithData<T, E: ?Sized> {
 
 impl<T, E: ?Sized + Element> Element for WithData<T, E> {
     #[inline]
+    fn ready(&mut self, cx: &ElemCtx) {
+        self.child.ready(cx);
+    }
+
+    #[inline]
     fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
         self.child.set_size(cx, size);
     }

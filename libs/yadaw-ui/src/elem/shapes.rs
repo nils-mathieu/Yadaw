@@ -177,6 +177,9 @@ impl<S: ?Sized + ToShape> ShapeElement<S> {
 
 impl<S: ?Sized + ToShape> Element for ShapeElement<S> {
     #[inline]
+    fn ready(&mut self, _cx: &ElemCtx) {}
+
+    #[inline]
     fn set_position(&mut self, _cx: &ElemCtx, position: Point) {
         self.position = position;
     }
@@ -317,6 +320,11 @@ impl<S: ToShape, E: ?Sized> WithBackground<S, E> {
 }
 
 impl<S: ToShape, E: ?Sized + Element> Element for WithBackground<S, E> {
+    #[inline]
+    fn ready(&mut self, cx: &ElemCtx) {
+        self.child.ready(cx);
+    }
+
     #[inline]
     fn metrics(&mut self, cx: &ElemCtx) -> Metrics {
         let child_cx = self.child_ctx(cx);
@@ -477,6 +485,11 @@ where
     E: ?Sized + Element,
 {
     #[inline]
+    fn ready(&mut self, cx: &ElemCtx) {
+        self.child.ready(cx);
+    }
+
+    #[inline]
     fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
         let child_cx = self.child_cx(cx);
         self.child.set_size(&child_cx, size);
@@ -580,6 +593,11 @@ where
     S: ToShape,
     E: ?Sized + Element,
 {
+    #[inline]
+    fn ready(&mut self, cx: &ElemCtx) {
+        self.child.ready(cx);
+    }
+
     #[inline]
     fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
         self.child.set_size(cx, size);

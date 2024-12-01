@@ -101,6 +101,11 @@ impl<E: ?Sized + Element> WithScroll<E> {
 }
 
 impl<E: ?Sized + Element> Element for WithScroll<E> {
+    #[inline]
+    fn ready(&mut self, cx: &ElemCtx) {
+        self.child.ready(cx);
+    }
+
     fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
         let mut child_size = size;
         if self.scroll_x {
@@ -180,6 +185,11 @@ impl<E> Element for WithScrollAndControls<E>
 where
     E: ?Sized + Element,
 {
+    #[inline]
+    fn ready(&mut self, cx: &ElemCtx) {
+        self.inner.ready(cx)
+    }
+
     #[inline]
     fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
         self.inner.set_size(cx, size);
