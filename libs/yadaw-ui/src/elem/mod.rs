@@ -5,7 +5,7 @@
 pub mod utils;
 
 pub mod shapes;
-pub use self::shapes::{BlockShape, ClipShape, ShapeElement, WithBackground};
+pub use self::shapes::{ClipChild, ShapeElement, SolidShape, WithBackground};
 
 pub mod text;
 pub use self::text::Text;
@@ -132,11 +132,11 @@ pub trait ElementExt: Sized + Element {
     }
 
     /// Adds a background shape to the element.
-    fn with_background(
-        self,
-        brush: impl Into<Brush>,
-    ) -> WithBackground<shapes::RoundedRectangle, Self> {
-        ShapeElement::default().with_child(self).with_brush(brush)
+    fn with_background(self, brush: impl Into<Brush>) -> WithBackground<shapes::RoundedRect, Self> {
+        ShapeElement::new()
+            .with_child(self)
+            .with_fill_shape()
+            .with_brush(brush)
     }
 
     /// Sets the cursor that should be used when the element is hovered.
@@ -146,8 +146,8 @@ pub trait ElementExt: Sized + Element {
 
     /// Wraps the element in a clip shape.
     #[inline]
-    fn with_clip_rect(self) -> ClipShape<self::shapes::RoundedRectangle, Self> {
-        ClipShape::new(Default::default(), self)
+    fn with_clip_rect(self) -> ClipChild<shapes::RoundedRect, Self> {
+        ShapeElement::new().with_clip_shape().with_child(self)
     }
 
     /// Turns the element into a [`Box<dyn Element>`].
@@ -163,13 +163,6 @@ pub trait ElementExt: Sized + Element {
     #[inline]
     fn into_ref(self) -> Rc<RefCell<Self>> {
         Rc::new(RefCell::new(self))
-    }
-
-    /// Wraps the element in a block pointer shape, making sure that pointer events are blocked
-    /// at that element.
-    #[inline]
-    fn with_block_rect(self) -> BlockShape<self::shapes::RoundedRectangle, Self> {
-        BlockShape::new(Default::default(), self)
     }
 
     /// Associates some data with the element.

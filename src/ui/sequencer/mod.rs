@@ -43,7 +43,7 @@ pub fn build() -> impl Element {
                             )
                             .with_space(1.0)
                             .with_child(
-                                elem::ShapeElement::<elem::shapes::Ellipse>::default()
+                                elem::SolidShape::<elem::shapes::Ellipse>::default()
                                     .with_brush(Color::rgb8(0x1E, 0xBA, 0xFF))
                                     .with_default_width(elem::Length::Pixels(12.0))
                                     .with_default_height(elem::Length::Pixels(12.0))
@@ -84,7 +84,7 @@ pub fn build() -> impl Element {
                 elem::Canvas::<Box<dyn Element>>::default()
                     .with_child(
                         elem::canvas::Child::new(
-                            elem::ShapeElement::<elem::shapes::Rectangle>::default()
+                            elem::SolidShape::<elem::shapes::Rect>::default()
                                 .with_brush(Color::ALICE_BLUE)
                                 .with_default_width(elem::Length::Pixels(100.0))
                                 .with_default_height(elem::Length::Pixels(100.0))
@@ -119,7 +119,6 @@ pub fn build() -> impl Element {
             .with_grow(1.0),
         )
         .with_margin(elem::Length::Pixels(16.0))
-        .with_block_rect()
         .hook_animation({
             let state = state.clone();
             move |el, cx, dt| state.borrow_mut().animate(el, cx, dt)

@@ -2,564 +2,311 @@
 //! traits to draw shapes.
 
 use {
-    crate::{
-        elem::Length,
-        element::{ElemCtx, Element, Event, EventResult, Metrics, SetSize},
-    },
+    super::{Empty, Length},
+    crate::element::{ElemCtx, Element, Event, EventResult, Metrics, SetSize},
     vello::{
-        kurbo::{self, Affine, Point, Rect, RoundedRect, RoundedRectRadii, Shape, Size},
-        peniko::{BlendMode, Brush, Fill},
+        kurbo::{self, Affine, Point, Shape},
+        peniko::{BlendMode, Brush, Color, Fill},
         Scene,
     },
 };
 
 /// Describes how to create a [`Shape`] from a [`Rect`].
+///
+/// This is the `S` generic parameter of [`ShapeElement`].
 pub trait ToShape {
     /// The type of shape that is created.
     type Shape: Shape;
 
     /// Creates a new shape from the provided rectangle.
-    fn to_shape(&self, cx: &ElemCtx, rect: Rect) -> Self::Shape;
+    fn to_shape(&self, cx: &ElemCtx, rect: kurbo::Rect) -> Self::Shape;
 }
 
-/// A rectangle shape.
-#[derive(Default, Debug, Clone, Copy)]
-pub struct Rectangle;
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Rect;
 
-impl ToShape for Rectangle {
-    type Shape = Rect;
+impl ToShape for Rect {
+    type Shape = kurbo::Rect;
 
     #[inline]
-    fn to_shape(&self, _cx: &ElemCtx, rect: Rect) -> Rect {
+    fn to_shape(&self, _cx: &ElemCtx, rect: kurbo::Rect) -> Self::Shape {
         rect
     }
 }
 
 /// A rectangle with rounded corners.
-#[derive(Default, Debug, Clone)]
-pub struct RoundedRectangle {
-    /// The radius of the top left corner.
+#[derive(Debug, Clone, Default)]
+pub struct RoundedRect {
+    /// The radius of the top-left corner.
     pub top_left: Length,
-    /// The radius of the top right corner.
+    /// The radius of the top-right corner.
     pub top_right: Length,
-    /// The radius of the bottom left corner.
-    pub bottom_left: Length,
-    /// The radius of the bottom right corner.
+    /// The radius of the bottom-right corner.
     pub bottom_right: Length,
+    /// The radius of the bottom-left corner.
+    pub bottom_left: Length,
 }
 
-impl RoundedRectangle {
-    /// Creates a new [`RoundedRectangle`] with the provided corner lengths.
-    pub fn to_rounded_rect(&self, rect: Rect, cx: &ElemCtx) -> RoundedRect {
-        RoundedRect::from_rect(
-            rect,
-            RoundedRectRadii::new(
-                self.top_left.resolve(cx),
-                self.top_right.resolve(cx),
-                self.bottom_right.resolve(cx),
-                self.bottom_left.resolve(cx),
-            ),
-        )
+impl ToShape for RoundedRect {
+    type Shape = kurbo::RoundedRect;
+
+    fn to_shape(&self, cx: &ElemCtx, rect: kurbo::Rect) -> Self::Shape {
+        let cx = cx.inherit_parent_size(rect.size());
+
+        let top_left = self.top_left.resolve(&cx);
+        let top_right = self.top_right.resolve(&cx);
+        let bottom_right = self.bottom_right.resolve(&cx);
+        let bottom_left = self.bottom_left.resolve(&cx);
+
+        let radii = kurbo::RoundedRectRadii::new(top_left, top_right, bottom_right, bottom_left);
+        rect.to_rounded_rect(radii)
     }
 }
 
-impl ToShape for RoundedRectangle {
-    type Shape = RoundedRect;
-
-    #[inline]
-    fn to_shape(&self, cx: &ElemCtx, rect: Rect) -> RoundedRect {
-        RoundedRect::from_rect(
-            rect,
-            RoundedRectRadii::new(
-                self.top_left.resolve(cx),
-                self.top_right.resolve(cx),
-                self.bottom_right.resolve(cx),
-                self.bottom_left.resolve(cx),
-            ),
-        )
-    }
-}
-
-/// An ellipse shape.
-#[derive(Default, Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct Ellipse;
 
 impl ToShape for Ellipse {
     type Shape = kurbo::Ellipse;
 
-    fn to_shape(&self, _cx: &ElemCtx, rect: Rect) -> Self::Shape {
+    #[inline]
+    fn to_shape(&self, _cx: &ElemCtx, rect: kurbo::Rect) -> Self::Shape {
         rect.to_ellipse()
     }
 }
 
-/// A shape that can be drawn.
-#[derive(Debug, Default, Clone)]
-pub struct ShapeElement<S: ?Sized> {
-    /// The current position of the element.
-    position: Point,
-    /// The current size of the element.
-    size: Size,
+/// The trait that the `D` generic parameter of [`ShapeElement`] must implement.
+pub trait DrawShape {
+    /// Draws the shape.
+    fn draw<S: Shape>(&mut self, shape: &S, scene: &mut Scene);
+}
 
-    /// The brush to use for drawing the shape.
+impl DrawShape for () {
+    #[inline]
+    fn draw<S: Shape>(&mut self, _shape: &S, _scene: &mut Scene) {}
+}
+
+/// An implementation of [`DrawShape`] that fills the shape with a color.
+#[derive(Debug, Clone)]
+pub struct FillShape {
+    /// The fill mode to use when drawing the shape.
+    pub fill: Fill,
+    /// The brush to use when drawing the shape.
     pub brush: Brush,
-    /// The transformation to apply to the brush.
+    /// The brush transform to apply when drawing the shape.
     pub brush_transform: Option<Affine>,
-
-    /// The shape to draw.
-    pub shape: S,
 }
 
-impl<S> ShapeElement<S> {
-    /// Sets the brush to use for drawing the shape.
-    pub fn with_brush(mut self, brush: impl Into<Brush>) -> Self {
-        self.brush = brush.into();
-        self
-    }
-
-    /// Sets the transformation to apply to the brush.
-    pub fn with_brush_transform(mut self, brush_transform: Affine) -> Self {
-        self.brush_transform = Some(brush_transform);
-        self
-    }
-
-    /// Adds a child element to the shape.
-    pub fn with_child<E>(self, child: E) -> WithBackground<S, E> {
-        WithBackground {
-            background: self,
-            clip_child: false,
-            child,
-        }
-    }
-}
-
-impl ShapeElement<RoundedRectangle> {
-    /// Sets the radius of all corners.
-    pub fn with_radius(mut self, radius: Length) -> Self {
-        self.shape.top_left = radius.clone();
-        self.shape.top_right = radius.clone();
-        self.shape.bottom_left = radius.clone();
-        self.shape.bottom_right = radius;
-        self
-    }
-
-    /// Sets the radius of the top-left corner.
-    pub fn with_top_left_radius(mut self, radius: Length) -> Self {
-        self.shape.top_left = radius;
-        self
-    }
-
-    /// Sets the radius of the top-right corner.
-    pub fn with_top_right_radius(mut self, radius: Length) -> Self {
-        self.shape.top_right = radius;
-        self
-    }
-
-    /// Sets the radius of the bottom-left corner.
-    pub fn with_bottom_left_radius(mut self, radius: Length) -> Self {
-        self.shape.bottom_left = radius;
-        self
-    }
-
-    /// Sets the radius of the bottom-right corner.
-    pub fn with_bottom_right_radius(mut self, radius: Length) -> Self {
-        self.shape.bottom_right = radius;
-        self
-    }
-}
-
-impl<S: ?Sized + ToShape> ShapeElement<S> {
-    /// Computes the shape that is associated with the element.
-    fn to_shape(&self, cx: &ElemCtx) -> S::Shape {
-        self.shape
-            .to_shape(cx, Rect::from_origin_size(self.position, self.size))
-    }
-}
-
-impl<S: ?Sized + ToShape> Element for ShapeElement<S> {
-    #[inline]
-    fn ready(&mut self, _cx: &ElemCtx) {}
-
-    #[inline]
-    fn set_position(&mut self, _cx: &ElemCtx, position: Point) {
-        self.position = position;
-    }
-
-    #[inline]
-    fn set_size(&mut self, _cx: &ElemCtx, size: SetSize) {
-        self.size = size
-            .specific_size()
-            .expect("ShapeElement does not support having an unconstrained size");
-    }
-
-    #[inline]
-    fn metrics(&mut self, _cx: &ElemCtx) -> Metrics {
-        Metrics {
-            position: self.position,
-            size: self.size,
-            baseline: 0.0,
-        }
-    }
-
-    #[inline]
-    fn render(&mut self, cx: &ElemCtx, scene: &mut Scene) {
+impl DrawShape for FillShape {
+    fn draw<S: Shape>(&mut self, shape: &S, scene: &mut Scene) {
         scene.fill(
-            Fill::NonZero,
+            self.fill,
             Affine::IDENTITY,
             &self.brush,
             self.brush_transform,
-            &self.to_shape(cx),
+            shape,
         );
     }
-
-    #[inline]
-    fn hit_test(&mut self, cx: &ElemCtx, point: Point) -> bool {
-        self.to_shape(cx).contains(point)
-    }
-
-    #[inline]
-    fn event(&mut self, _cx: &ElemCtx, _event: &dyn Event) -> EventResult {
-        EventResult::Continue
-    }
 }
 
-/// An [`Element`] that draws a background shape behind its child.
-pub struct WithBackground<S, E: ?Sized> {
-    /// The background shape to draw.
-    pub background: ShapeElement<S>,
-    /// Whether to clip the shape to the bounds of the element.
-    pub clip_child: bool,
-    /// The child element.
-    pub child: E,
-}
-
-impl<S, E> WithBackground<S, E> {
-    /// Sets the brush to use for drawing the background shape.
-    pub fn with_brush(mut self, brush: impl Into<Brush>) -> Self {
-        self.background.brush = brush.into();
-        self
-    }
-
-    /// Sets the transformation to apply to the brush.
-    pub fn with_brush_transform(mut self, brush_transform: Affine) -> Self {
-        self.background.brush_transform = Some(brush_transform);
-        self
-    }
-
-    /// Sets whether to clip the shape to the bounds of the element.
-    pub fn with_clip_child(mut self, clip_child: bool) -> Self {
-        self.clip_child = clip_child;
-        self
-    }
-
-    /// Sets the brush to use for drawing the background shape.
-    pub fn with_background_brush(mut self, brush: impl Into<Brush>) -> Self {
-        self.background.brush = brush.into();
-        self
-    }
-
-    /// Sets the transformation to apply to the background brush.
-    pub fn with_background_brush_transform(mut self, brush_transform: Affine) -> Self {
-        self.background.brush_transform = Some(brush_transform);
-        self
-    }
-}
-
-impl<E> WithBackground<RoundedRectangle, E> {
-    /// Sets the radius of all corners.
-    pub fn with_radius(mut self, radius: Length) -> Self {
-        self.background.shape.top_left = radius.clone();
-        self.background.shape.top_right = radius.clone();
-        self.background.shape.bottom_left = radius.clone();
-        self.background.shape.bottom_right = radius;
-        self
-    }
-
-    /// Sets the radius of the top-left corner.
-    pub fn with_top_left_radius(mut self, radius: Length) -> Self {
-        self.background.shape.top_left = radius;
-        self
-    }
-
-    /// Sets the radius of the top-right corner.
-    pub fn with_top_right_radius(mut self, radius: Length) -> Self {
-        self.background.shape.top_right = radius;
-        self
-    }
-
-    /// Sets the radius of the bottom-left corner.
-    pub fn with_bottom_left_radius(mut self, radius: Length) -> Self {
-        self.background.shape.bottom_left = radius;
-        self
-    }
-
-    /// Sets the radius of the bottom-right corner.
-    pub fn with_bottom_right_radius(mut self, radius: Length) -> Self {
-        self.background.shape.bottom_right = radius;
-        self
-    }
-}
-
-impl<S: ToShape, E: ?Sized> WithBackground<S, E> {
-    fn child_ctx(&self, cx: &ElemCtx) -> ElemCtx {
-        if self.clip_child {
-            let shape = self.background.to_shape(cx);
-
-            cx.inherit_clip_rect(Rect::from_origin_size(
-                self.background.position,
-                self.background.size,
-            ))
-            .inherit_cursor_present(
-                cx.window()
-                    .last_reported_cursor_position()
-                    .is_some_and(|pos| shape.contains(pos)),
-            )
-        } else {
-            cx.clone()
-        }
-    }
-}
-
-impl<S: ToShape, E: ?Sized + Element> Element for WithBackground<S, E> {
-    #[inline]
-    fn ready(&mut self, cx: &ElemCtx) {
-        self.child.ready(cx);
-    }
-
-    #[inline]
-    fn metrics(&mut self, cx: &ElemCtx) -> Metrics {
-        let child_cx = self.child_ctx(cx);
-        self.child.metrics(&child_cx)
-    }
-
-    fn render(&mut self, cx: &ElemCtx, scene: &mut Scene) {
-        let child_cx = self.child_ctx(cx);
-
-        self.background.render(cx, scene);
-
-        if self.clip_child {
-            scene.push_layer(
-                BlendMode::default(),
-                1.0,
-                Affine::IDENTITY,
-                &self.background.to_shape(cx),
-            );
-        }
-
-        self.child.render(&child_cx, scene);
-
-        if self.clip_child {
-            scene.pop_layer();
-        }
-    }
-
-    fn hit_test(&mut self, cx: &ElemCtx, point: Point) -> bool {
-        let child_cx = self.child_ctx(cx);
-        self.child.hit_test(&child_cx, point) || self.background.hit_test(cx, point)
-    }
-
-    #[inline]
-    fn event(&mut self, cx: &ElemCtx, event: &dyn Event) -> EventResult {
-        let child_cx = self.child_ctx(cx);
-        self.child.event(&child_cx, event)
-    }
-
-    #[inline]
-    fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
-        let child_cx = self.child_ctx(cx);
-        self.child.set_size(&child_cx, size);
-        self.background.size = size.or_fallback(self.child.metrics(&child_cx).size);
-    }
-
-    #[inline]
-    fn set_position(&mut self, cx: &ElemCtx, position: Point) {
-        let child_cx = self.child_ctx(cx);
-        self.child.set_position(&child_cx, position);
-        self.background.position = position;
-    }
-}
-
-/// A shape that clips its child to its bounds.
-pub struct ClipShape<S, E: ?Sized> {
-    position: Point,
-    size: Size,
-
-    /// The shape to clip the child to.
-    shape: S,
-    /// The opacity used to clip the child.
-    opacity: f32,
-    /// The blend mode used to clip the child.
-    blend_mode: BlendMode,
-    /// The child element.
-    child: E,
-}
-
-impl<S, E> ClipShape<S, E> {
-    /// Creates a new [`ClipShape`] with the provided shape and child element.
-    pub fn new(shape: S, child: E) -> Self {
+impl Default for FillShape {
+    fn default() -> Self {
         Self {
-            position: Point::ZERO,
-            size: Size::ZERO,
-            shape,
-            child,
+            fill: Fill::NonZero,
+            brush: Color::TRANSPARENT.into(),
+            brush_transform: None,
+        }
+    }
+}
+
+/// The trait that the `C` generic parameter of [`ShapeElement`] must implement.
+pub trait ClipShape {
+    /// Determines whether a hit test succeeds here.
+    fn hit_test<S: Shape>(&mut self, shape: &S, point: Point) -> bool;
+
+    /// Pushes the clip layer.
+    fn push_layer<S: Shape>(&mut self, shape: &S, scene: &mut Scene);
+
+    /// Pop the clip layer.
+    fn pop_layer(&mut self, scene: &mut Scene);
+
+    /// Inherit the context.
+    fn inherit_context(&self, bounds: kurbo::Rect, cx: &ElemCtx) -> ElemCtx;
+}
+
+impl ClipShape for () {
+    #[inline]
+    fn hit_test<S: Shape>(&mut self, _shape: &S, _point: Point) -> bool {
+        false
+    }
+
+    #[inline]
+    fn push_layer<S: Shape>(&mut self, _shape: &S, _scene: &mut Scene) {}
+
+    #[inline]
+    fn pop_layer(&mut self, _scene: &mut Scene) {}
+
+    #[inline]
+    fn inherit_context(&self, _bounds: kurbo::Rect, cx: &ElemCtx) -> ElemCtx {
+        cx.clone()
+    }
+}
+
+/// An implementation of [`ClipShape`] that do clip the shape.
+#[derive(Debug, Clone)]
+pub struct DoClipShape {
+    /// The opacity used to blend the child element with the background.
+    pub opacity: f32,
+    /// The blend mode to use when blending the child element with the background.
+    pub blend_mode: BlendMode,
+}
+
+impl ClipShape for DoClipShape {
+    #[inline]
+    fn hit_test<S: Shape>(&mut self, shape: &S, point: Point) -> bool {
+        shape.contains(point)
+    }
+
+    fn push_layer<S: Shape>(&mut self, shape: &S, scene: &mut Scene) {
+        scene.push_layer(self.blend_mode, self.opacity, Affine::IDENTITY, shape);
+    }
+
+    #[inline]
+    fn pop_layer(&mut self, scene: &mut Scene) {
+        scene.pop_layer()
+    }
+
+    #[inline]
+    fn inherit_context(&self, bounds: kurbo::Rect, cx: &ElemCtx) -> ElemCtx {
+        cx.inherit_clip_rect(bounds)
+    }
+}
+
+impl Default for DoClipShape {
+    fn default() -> Self {
+        Self {
             opacity: 1.0,
             blend_mode: BlendMode::default(),
         }
     }
-
-    /// Sets the opacity used to clip
-    pub fn with_opacity(mut self, opacity: f32) -> Self {
-        self.opacity = opacity;
-        self
-    }
-
-    /// Sets the blend mode used to clip
-    pub fn with_blend_mode(mut self, blend_mode: impl Into<BlendMode>) -> Self {
-        self.blend_mode = blend_mode.into();
-        self
-    }
 }
 
-impl<E> ClipShape<RoundedRectangle, E> {
-    /// Sets the radius of all corners.
-    pub fn with_radius(mut self, radius: Length) -> Self {
-        self.shape.top_left = radius.clone();
-        self.shape.top_right = radius.clone();
-        self.shape.bottom_left = radius.clone();
-        self.shape.bottom_right = radius;
-        self
-    }
-
-    /// Sets the radius of the top-left corner.
-    pub fn with_top_left_radius(mut self, radius: Length) -> Self {
-        self.shape.top_left = radius;
-        self
-    }
-
-    /// Sets the radius of the top-right corner.
-    pub fn with_top_right_radius(mut self, radius: Length) -> Self {
-        self.shape.top_right = radius;
-        self
-    }
-
-    /// Sets the radius of the bottom-left corner.
-    pub fn with_bottom_left_radius(mut self, radius: Length) -> Self {
-        self.shape.bottom_left = radius;
-        self
-    }
-
-    /// Sets the radius of the bottom-right corner.
-    pub fn with_bottom_right_radius(mut self, radius: Length) -> Self {
-        self.shape.bottom_right = radius;
-        self
-    }
-}
-
-impl<S, E> ClipShape<S, E>
-where
-    S: ToShape,
-    E: ?Sized + Element,
-{
-    fn rect(&self) -> Rect {
-        Rect::from_origin_size(self.position, self.size)
-    }
-
-    #[allow(clippy::wrong_self_convention)]
-    fn to_shape(&mut self, cx: &ElemCtx) -> S::Shape {
-        self.shape.to_shape(cx, self.rect())
-    }
-
-    fn child_cx(&mut self, cx: &ElemCtx) -> ElemCtx {
-        let shape = self.shape.to_shape(cx, self.rect());
-
-        cx.inherit_clip_rect(self.rect()).inherit_cursor_present(
-            cx.window()
-                .last_reported_cursor_position()
-                .is_some_and(|pos| shape.contains(pos)),
-        )
-    }
-}
-
-impl<S, E> Element for ClipShape<S, E>
-where
-    S: ToShape,
-    E: ?Sized + Element,
-{
-    #[inline]
-    fn ready(&mut self, cx: &ElemCtx) {
-        self.child.ready(cx);
-    }
-
-    #[inline]
-    fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
-        let child_cx = self.child_cx(cx);
-        self.child.set_size(&child_cx, size);
-        self.size = size.or_fallback(self.child.metrics(&child_cx).size);
-    }
-
-    #[inline]
-    fn set_position(&mut self, cx: &ElemCtx, position: Point) {
-        let child_cx = self.child_cx(cx);
-        self.child.set_position(&child_cx, position);
-        self.position = position;
-    }
-
-    #[inline]
-    fn metrics(&mut self, cx: &ElemCtx) -> Metrics {
-        let child_cx = self.child_cx(cx);
-        self.child.metrics(&child_cx)
-    }
-
-    fn render(&mut self, cx: &ElemCtx, scene: &mut Scene) {
-        let shape = self.to_shape(cx);
-        let child_cx = self.child_cx(cx);
-
-        scene.push_layer(self.blend_mode, self.opacity, Affine::IDENTITY, &shape);
-        self.child.render(&child_cx, scene);
-        scene.pop_layer();
-    }
-
-    fn hit_test(&mut self, cx: &ElemCtx, point: Point) -> bool {
-        let child_cx = self.child_cx(cx);
-        self.to_shape(cx).contains(point) && self.child.hit_test(&child_cx, point)
-    }
-
-    #[inline]
-    fn event(&mut self, cx: &ElemCtx, event: &dyn Event) -> EventResult {
-        let child_cx = self.child_cx(cx);
-        self.child.event(&child_cx, event)
-    }
-}
-
-/// A shape that draws a block pointer behind its child.
-pub struct BlockShape<S, E: ?Sized> {
-    position: Point,
-    size: Size,
-
-    /// The shape of the block pointer.
+/// An element that draws a shape.
+pub struct ShapeElement<S, D, C, E: ?Sized> {
+    /// The shape to draw.
     pub shape: S,
-    /// The child element.
+    /// Information about how to draw the shape.
+    pub draw: D,
+    /// Information about how to clip the shape.
+    pub clip: C,
+    /// Whether hits should be blocked without caring about the child element.
+    pub block_all_hits: bool,
+    /// The child element of the shape.
     pub child: E,
 }
 
-impl<S, E> BlockShape<S, E> {
-    /// Creates a new [`BlockPointerShape`] with the provided child element.
-    pub fn new(shape: S, child: E) -> Self {
+impl<S: Default, D: Default, C: Default> Default for ShapeElement<S, D, C, Empty> {
+    fn default() -> Self {
         Self {
-            position: Point::ZERO,
-            size: Size::ZERO,
-            shape,
-            child,
+            shape: S::default(),
+            draw: D::default(),
+            clip: C::default(),
+            block_all_hits: true,
+            child: Empty::default(),
         }
     }
 }
 
-impl<E> BlockShape<RoundedRectangle, E> {
+impl<S: Default> ShapeElement<S, (), (), Empty> {
+    /// Creates a new shape element.
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl<S, D, C, E> ShapeElement<S, D, C, E> {
+    /// Sets whether the shape element should be allowed to block all hits
+    /// without caring about the child element.
+    pub fn with_no_block_hits(mut self) -> Self {
+        self.block_all_hits = false;
+        self
+    }
+
+    /// Make the shape clip its child element.
+    pub fn with_clip_shape(self) -> ShapeElement<S, D, DoClipShape, E> {
+        ShapeElement {
+            shape: self.shape,
+            draw: self.draw,
+            clip: DoClipShape::default(),
+            block_all_hits: self.block_all_hits,
+            child: self.child,
+        }
+    }
+
+    /// Fill the shape.
+    pub fn with_fill_shape(self) -> ShapeElement<S, FillShape, C, E> {
+        ShapeElement {
+            shape: self.shape,
+            draw: FillShape::default(),
+            clip: self.clip,
+            block_all_hits: self.block_all_hits,
+            child: self.child,
+        }
+    }
+
+    /// Sets the child element of the shape.
+    pub fn with_child<E2>(self, element: E2) -> ShapeElement<S, D, C, E2> {
+        ShapeElement {
+            shape: self.shape,
+            draw: self.draw,
+            clip: self.clip,
+            block_all_hits: self.block_all_hits,
+            child: element,
+        }
+    }
+}
+
+impl<S, C, E> ShapeElement<S, FillShape, C, E> {
+    /// Sets the fill mode to use when drawing the shape.
+    pub fn with_fill_mode(mut self, fill: Fill) -> Self {
+        self.draw.fill = fill;
+        self
+    }
+
+    /// Sets the brush to use when drawing the shape.
+    pub fn with_brush(mut self, brush: impl Into<Brush>) -> Self {
+        self.draw.brush = brush.into();
+        self
+    }
+
+    /// Sets the brush transform to apply when drawing the shape.
+    pub fn with_brush_transform(mut self, brush_transform: Affine) -> Self {
+        self.draw.brush_transform = Some(brush_transform);
+        self
+    }
+}
+
+impl<S, D, E> ShapeElement<S, D, DoClipShape, E> {
+    /// Sets the opacity used to blend the child element with the background.
+    pub fn with_opacity(mut self, opacity: f32) -> Self {
+        self.clip.opacity = opacity;
+        self
+    }
+
+    /// Sets the blend mode to use when blending the child element with the background.
+    pub fn with_blend_mode(mut self, blend_mode: impl Into<BlendMode>) -> Self {
+        self.clip.blend_mode = blend_mode.into();
+        self
+    }
+}
+
+impl<D, C, E> ShapeElement<RoundedRect, D, C, E> {
     /// Sets the radius of all corners.
     pub fn with_radius(mut self, radius: Length) -> Self {
         self.shape.top_left = radius.clone();
         self.shape.top_right = radius.clone();
-        self.shape.bottom_left = radius.clone();
-        self.shape.bottom_right = radius;
+        self.shape.bottom_right = radius.clone();
+        self.shape.bottom_left = radius;
         self
     }
 
@@ -575,22 +322,33 @@ impl<E> BlockShape<RoundedRectangle, E> {
         self
     }
 
-    /// Sets the radius of the bottom-left corner.
-    pub fn with_bottom_left_radius(mut self, radius: Length) -> Self {
-        self.shape.bottom_left = radius;
-        self
-    }
-
     /// Sets the radius of the bottom-right corner.
     pub fn with_bottom_right_radius(mut self, radius: Length) -> Self {
         self.shape.bottom_right = radius;
         self
     }
+
+    /// Sets the radius of the bottom-left corner.
+    pub fn with_bottom_left_radius(mut self, radius: Length) -> Self {
+        self.shape.bottom_left = radius;
+        self
+    }
 }
 
-impl<S, E> Element for BlockShape<S, E>
+/// A shape element that fills the shape with a color.
+pub type WithBackground<S, E> = ShapeElement<S, FillShape, (), E>;
+
+/// A shape element that clips its child element.
+pub type ClipChild<S, E> = ShapeElement<S, (), DoClipShape, E>;
+
+/// A shape element that fills the shape with a color and clips its child element.
+pub type SolidShape<S> = ShapeElement<S, FillShape, (), Empty>;
+
+impl<S, D, C, E> Element for ShapeElement<S, D, C, E>
 where
     S: ToShape,
+    D: DrawShape,
+    C: ClipShape,
     E: ?Sized + Element,
 {
     #[inline]
@@ -601,13 +359,11 @@ where
     #[inline]
     fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
         self.child.set_size(cx, size);
-        self.size = size.or_fallback(self.child.metrics(cx).size);
     }
 
     #[inline]
     fn set_position(&mut self, cx: &ElemCtx, position: Point) {
         self.child.set_position(cx, position);
-        self.position = position;
     }
 
     #[inline]
@@ -617,19 +373,32 @@ where
 
     #[inline]
     fn render(&mut self, cx: &ElemCtx, scene: &mut Scene) {
-        self.child.render(cx, scene);
+        let rect = self.child.metrics(cx).rect();
+        let shape = self.shape.to_shape(cx, rect);
+
+        let cx = self.clip.inherit_context(rect, cx);
+        self.draw.draw(&shape, scene);
+        self.clip.push_layer(&shape, scene);
+        self.child.render(&cx, scene);
+        self.clip.pop_layer(scene);
     }
 
-    #[inline]
     fn hit_test(&mut self, cx: &ElemCtx, point: Point) -> bool {
-        self.shape
-            .to_shape(cx, Rect::from_origin_size(self.position, self.size))
-            .contains(point)
-            || self.child.hit_test(cx, point)
+        let rect = self.child.metrics(cx).rect();
+        let shape = self.shape.to_shape(cx, rect);
+        let cx = self.clip.inherit_context(rect, cx);
+
+        if self.block_all_hits {
+            shape.contains(point)
+        } else {
+            self.clip.hit_test(&shape, point) && self.child.hit_test(&cx, point)
+        }
     }
 
     #[inline]
     fn event(&mut self, cx: &ElemCtx, event: &dyn Event) -> EventResult {
-        self.child.event(cx, event)
+        let rect = self.child.metrics(cx).rect();
+        let cx = self.clip.inherit_context(rect, cx);
+        self.child.event(&cx, event)
     }
 }
