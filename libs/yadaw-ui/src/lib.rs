@@ -16,6 +16,7 @@ pub mod element;
 pub mod event;
 pub mod private;
 pub mod runtime;
+pub mod scheme;
 
 mod window;
 pub use self::window::*;
