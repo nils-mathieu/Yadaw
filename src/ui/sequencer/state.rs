@@ -84,6 +84,12 @@ impl Default for SequencerUiState {
 }
 
 impl SequencerUiState {
+    /// Called when the sequencer enters the element tree.
+    pub fn ready(&mut self, child: &mut dyn Element, cx: &ElemCtx) {
+        child.event(cx, &SequencerEvent::SetZoom(self.zoom));
+        child.event(cx, &SequencerEvent::SetDragOffset(self.drag_offset));
+    }
+
     /// Animates the sequencer's content.
     ///
     /// # Returns

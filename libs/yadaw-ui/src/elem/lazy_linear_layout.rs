@@ -226,6 +226,7 @@ where
                 element: (self.make_children)(index),
             });
             let child = &mut self.children.last_mut().unwrap().element;
+            child.ready(&child_cx);
             child.set_size(
                 &child_cx,
                 SetSize::from_specific(Size::new(child_width, child_height)),

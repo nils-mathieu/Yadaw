@@ -9,9 +9,9 @@ use {
 /// An element that constrains the size of its child element.
 pub struct WithDefaultSize<E: ?Sized> {
     /// The new width of the child element.
-    pub new_width: Option<Length>,
+    pub default_width: Option<Length>,
     /// The new height of the child element.
-    pub new_height: Option<Length>,
+    pub default_height: Option<Length>,
 
     /// The child element.
     pub child: E,
@@ -21,21 +21,21 @@ impl<E> WithDefaultSize<E> {
     /// Creates a new [`WithDefaultSize`] element with the provided child.
     pub fn new(child: E) -> Self {
         Self {
-            new_width: None,
-            new_height: None,
+            default_width: None,
+            default_height: None,
             child,
         }
     }
 
     /// Sets the new width of the child element.
     pub fn with_default_width(mut self, width: Length) -> Self {
-        self.new_width = Some(width);
+        self.default_width = Some(width);
         self
     }
 
     /// Sets the new height of the child element.
     pub fn with_default_height(mut self, height: Length) -> Self {
-        self.new_height = Some(height);
+        self.default_height = Some(height);
         self
     }
 }
@@ -47,8 +47,11 @@ impl<E: ?Sized + Element> Element for WithDefaultSize<E> {
     }
 
     fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
-        let new_width = self.new_width.as_ref().map(|width| width.resolve(cx));
-        let new_height = self.new_height.as_ref().map(|height| height.resolve(cx));
+        let new_width = self.default_width.as_ref().map(|width| width.resolve(cx));
+        let new_height = self
+            .default_height
+            .as_ref()
+            .map(|height| height.resolve(cx));
         let new_size = SetSize::new(new_width, new_height);
         self.child.set_size(cx, size.or(new_size));
     }

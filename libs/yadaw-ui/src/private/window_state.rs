@@ -292,7 +292,10 @@ impl WindowState {
     }
 
     /// Sets the root element of the window.
-    pub fn set_root_element(&self, root: Box<dyn Element>) {
+    pub fn set_root_element(self: &Rc<Self>, mut root: Box<dyn Element>) {
+        let cx = self.elem_ctx();
+        root.ready(&cx);
+
         self.root_element.set(Some(root));
         self.add_dirt(DirtyState::Layout);
     }

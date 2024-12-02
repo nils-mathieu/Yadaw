@@ -35,14 +35,21 @@ impl SetSize {
 
     /// Creates a new [`SetSize`] instance with the provided constraints.
     #[track_caller]
-    pub fn from_specific(size: Size) -> Self {
-        debug_assert!(size.width.is_sign_positive());
-        debug_assert!(size.height.is_sign_positive());
+    pub fn from_specific(size: impl Into<Size>) -> Self {
+        let size = size.into();
 
-        Self {
-            width: size.width,
-            height: size.height,
+        #[track_caller]
+        fn inner(size: Size) -> SetSize {
+            debug_assert!(size.width.is_sign_positive());
+            debug_assert!(size.height.is_sign_positive());
+
+            SetSize {
+                width: size.width,
+                height: size.height,
+            }
         }
+
+        inner(size)
     }
 
     /// Creates a new [`SetSize`] instance with the provided constraints.

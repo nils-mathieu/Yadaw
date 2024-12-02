@@ -228,3 +228,63 @@ where
         self.child.event(cx, event)
     }
 }
+
+/// An element that runs a function when the element is ready.
+pub struct HookReady<F, E: ?Sized> {
+    /// The callback to run.
+    callback: F,
+    /// The child element.
+    pub child: E,
+}
+
+impl<F, E> HookReady<F, E> {
+    /// Creates a new `HookReady` element.
+    pub fn new(callback: F, child: E) -> Self
+    where
+        F: FnMut(&mut E, &ElemCtx),
+    {
+        Self { callback, child }
+    }
+}
+
+impl<F, E> Element for HookReady<F, E>
+where
+    F: FnMut(&mut E, &ElemCtx),
+    E: Element,
+{
+    #[inline]
+    fn ready(&mut self, cx: &ElemCtx) {
+        (self.callback)(&mut self.child, cx);
+        self.child.ready(cx);
+    }
+
+    #[inline]
+    fn set_size(&mut self, cx: &ElemCtx, size: SetSize) {
+        self.child.set_size(cx, size);
+    }
+
+    #[inline]
+    fn set_position(&mut self, cx: &ElemCtx, position: Point) {
+        self.child.set_position(cx, position);
+    }
+
+    #[inline]
+    fn metrics(&mut self, cx: &ElemCtx) -> Metrics {
+        self.child.metrics(cx)
+    }
+
+    #[inline]
+    fn render(&mut self, cx: &ElemCtx, scene: &mut Scene) {
+        self.child.render(cx, scene);
+    }
+
+    #[inline]
+    fn hit_test(&mut self, cx: &ElemCtx, point: Point) -> bool {
+        self.child.hit_test(cx, point)
+    }
+
+    #[inline]
+    fn event(&mut self, cx: &ElemCtx, event: &dyn Event) -> EventResult {
+        self.child.event(cx, event)
+    }
+}

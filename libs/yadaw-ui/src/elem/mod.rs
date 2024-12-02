@@ -13,8 +13,8 @@ pub use self::text::Text;
 pub mod linear_layout;
 pub use self::linear_layout::LinearLayout;
 
-pub mod canvas;
-pub use self::canvas::Canvas;
+pub mod elements;
+pub use self::elements::Elements;
 
 mod with_margin;
 pub use self::with_margin::WithMargin;
@@ -29,7 +29,7 @@ mod with_scroll;
 pub use self::with_scroll::WithScroll;
 
 mod events;
-pub use self::events::{CatchEvent, HookAnimation, HookEvents};
+pub use self::events::{CatchEvent, HookAnimation, HookEvents, HookReady};
 
 mod with_default_size;
 pub use self::with_default_size::WithDefaultSize;
@@ -43,17 +43,20 @@ pub use self::empty::Empty;
 mod with_data;
 pub use self::with_data::WithData;
 
+mod transform;
+pub use self::transform::Translate;
+
 use {
     crate::element::{ElemCtx, Element, Event, EventResult},
     std::{cell::RefCell, rc::Rc},
-    vello::peniko::Brush,
+    vello::{kurbo::Vec2, peniko::Brush},
     winit::window::CursorIcon,
 };
 
 /// An extension trait for elements.
 pub trait ElementExt: Sized + Element {
     /// Hooks a fucntion into the element's event handling.
-    fn hook_events<F>(self, f: F) -> HookEvents<F, Self>
+    fn on_any_event<F>(self, f: F) -> HookEvents<F, Self>
     where
         F: FnMut(&mut Self, &ElemCtx, &dyn Event) -> EventResult,
     {
@@ -61,7 +64,7 @@ pub trait ElementExt: Sized + Element {
     }
 
     /// Hooks a function into the element's event handling, capturing a specific event type.
-    fn catch_event<T, F>(self, f: F) -> CatchEvent<T, F, Self>
+    fn on_event<T, F>(self, f: F) -> CatchEvent<T, F, Self>
     where
         F: FnMut(&mut Self, &ElemCtx, &T) -> EventResult,
     {
@@ -72,11 +75,19 @@ pub trait ElementExt: Sized + Element {
     /// effects.
     ///
     /// The animation must be initiated by calling [`start_animation`](HookAnimation::start_animation).
-    fn hook_animation<F>(self, f: F) -> HookAnimation<F, Self>
+    fn on_animation<F>(self, f: F) -> HookAnimation<F, Self>
     where
         F: FnMut(&mut Self, &ElemCtx, f64) -> bool,
     {
         HookAnimation::new(f, self)
+    }
+
+    /// Hooks a function into the element's ready logic.
+    fn on_ready<F>(self, f: F) -> HookReady<F, Self>
+    where
+        F: FnMut(&mut Self, &ElemCtx),
+    {
+        HookReady::new(f, self)
     }
 
     /// Makes sure that the element has a default size.
@@ -145,13 +156,11 @@ pub trait ElementExt: Sized + Element {
     }
 
     /// Wraps the element in a clip shape.
-    #[inline]
     fn with_clip_rect(self) -> ClipChild<shapes::RoundedRect, Self> {
         ShapeElement::new().with_clip_shape().with_child(self)
     }
 
     /// Turns the element into a [`Box<dyn Element>`].
-    #[inline]
     fn into_dyn_element(self) -> Box<dyn Element>
     where
         Self: 'static,
@@ -165,15 +174,21 @@ pub trait ElementExt: Sized + Element {
     }
 
     /// Creates a reference-counted [`RefCell`] containing the element.
-    #[inline]
     fn into_ref(self) -> Rc<RefCell<Self>> {
         Rc::new(RefCell::new(self))
     }
 
     /// Associates some data with the element.
-    #[inline]
     fn with_data<T>(self, data: T) -> WithData<T, Self> {
         WithData { data, child: self }
+    }
+
+    /// Translates the element by the provided vector.
+    fn with_translation(self, translation: impl Into<Vec2>) -> Translate<Self> {
+        Translate {
+            translation: translation.into(),
+            child: self,
+        }
     }
 }
 

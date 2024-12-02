@@ -1,5 +1,5 @@
 use {
-    crate::ui::FOREGROUND_COLOR,
+    crate::ui::{FONT_FAMILY, FOREGROUND_COLOR},
     yadaw_ui::{
         elem::{self, ElementExt},
         element::Element,
@@ -28,6 +28,7 @@ pub fn build(index: usize) -> impl Element {
                         .with_brush(FOREGROUND_COLOR)
                         .with_font_size(elem::Length::Pixels(16.0))
                         .with_weight(FontWeight::BOLD)
+                        .with_font_family(FONT_FAMILY)
                         .into_dyn_element(),
                 )
                 .with_space(1.0)

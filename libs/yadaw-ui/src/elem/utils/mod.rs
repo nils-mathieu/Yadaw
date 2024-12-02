@@ -1,6 +1,9 @@
 //! Utility functions to work with elements.
 
-use std::ops::{Add, Mul, Sub};
+use {
+    std::ops::{Add, Mul, Sub},
+    vello::peniko::Color,
+};
 
 /// An exponential decay interpolation function.
 ///
@@ -16,4 +19,17 @@ where
     T: Copy + Sub<Output = T> + Mul<f64, Output = T> + Add<Output = T>,
 {
     b + (a - b) * (-k).exp()
+}
+
+/// Determines the ideal text color for a given background color.
+///
+/// # Returns
+///
+/// `true` if the text color should be dark, `false` if it should be light.
+pub fn text_color_for_background(bg: Color) -> bool {
+    let red = bg.r as f64;
+    let green = bg.g as f64;
+    let blue = bg.b as f64;
+
+    (red * 0.299 + green * 0.587 + blue * 0.114) > 186.0
 }
