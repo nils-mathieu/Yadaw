@@ -122,6 +122,11 @@ impl AppState {
             WindowEvent::RedrawRequested => {
                 self.ctx.redraw_window(&mut self.scratch_scene, window_id);
             }
+            WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
+                self.ctx.with_window(window_id, |window| {
+                    window.notify_scale_factor_changed(scale_factor)
+                });
+            }
             _ => {}
         });
     }

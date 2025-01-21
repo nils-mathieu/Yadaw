@@ -1,5 +1,5 @@
 use {
-    crate::private::WindowInner,
+    crate::{element::Element, private::WindowInner},
     std::{
         fmt::Debug,
         rc::{Rc, Weak},
@@ -65,6 +65,24 @@ impl Window {
         } else {
             wgpu::PresentMode::AutoNoVsync
         });
+    }
+
+    /// Requests a redraw of the window.
+    #[track_caller]
+    pub fn request_redraw(&self) {
+        self.inner().winit_window().request_redraw();
+    }
+
+    /// Sets the root element of the window as a boxed value.
+    #[track_caller]
+    pub fn set_root_element_boxed(&self, elem: Box<dyn Element>) {
+        self.inner().set_root_element(elem);
+    }
+
+    /// Sets the root element of the window.
+    #[track_caller]
+    pub fn set_root_element(&self, elem: impl 'static + Element) {
+        self.set_root_element_boxed(Box::new(elem));
     }
 }
 

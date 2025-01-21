@@ -4,7 +4,14 @@
 //! create vector-based UIs with a simple layout system inspired by the classic CSS flexbox model
 //! and a simple event system.
 
-pub extern crate winit;
+pub use {
+    vello::{
+        self, kurbo,
+        peniko::{self, color},
+        wgpu,
+    },
+    winit,
+};
 
 mod private;
 
@@ -15,6 +22,11 @@ pub use self::ctx::*;
 
 mod window;
 pub use self::window::*;
+
+mod element;
+pub use self::element::*;
+
+pub mod elements;
 
 /// Runs the Kui application.
 ///

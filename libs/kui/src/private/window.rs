@@ -1,7 +1,14 @@
 use {
-    crate::private::{CtxInner, Renderer, WindowAndSurface},
-    std::rc::Rc,
-    vello::{peniko, wgpu},
+    crate::{
+        SizeConstraint,
+        element::{Element, LayoutInfo},
+        private::{CtxInner, Renderer, WindowAndSurface},
+    },
+    std::{cell::Cell, rc::Rc},
+    vello::{
+        kurbo::{self, Point},
+        peniko, wgpu,
+    },
     winit::{dpi::PhysicalSize, window::Window},
 };
 
@@ -13,14 +20,28 @@ pub struct WindowInner {
     /// The concrete winit object that can be used to manipulate
     /// the underlying window.
     window_and_surface: WindowAndSurface,
+
+    /// Whether the layout of the UI tree needs to be re-computed.
+    recompute_layout: Cell<bool>,
+
+    /// The root element of the window.
+    root_element: Cell<Box<dyn Element>>,
+
+    /// The scale factor of the window.
+    scale_factor: Cell<f64>,
 }
 
 impl WindowInner {
     /// Creates a new [`WindowInner`] object.
     pub fn new(ctx: Rc<CtxInner>, window_and_surface: WindowAndSurface) -> Self {
+        let scale_factor = window_and_surface.winit_window().scale_factor();
+
         Self {
             ctx,
             window_and_surface,
+            recompute_layout: Cell::new(true),
+            root_element: Cell::new(Box::new(())),
+            scale_factor: Cell::new(scale_factor),
         }
     }
 
@@ -30,7 +51,39 @@ impl WindowInner {
     ///
     /// This function might call user-defined functions!
     pub fn draw_to_scene(&self, scene: &mut vello::Scene) {
+        // This custom element is used as a sentinel to check whether the root element of the
+        // window has changed during the draw callback.
+        struct PrivateElement;
+        impl Element for PrivateElement {
+            #[inline]
+            fn __private_implementation_detail_do_not_use(&self) -> bool {
+                true
+            }
+        }
+
+        let mut root_element = self.root_element.replace(Box::new(PrivateElement));
+
+        if self.recompute_layout.get() {
+            let size = self.window_and_surface.cached_size();
+            let size = kurbo::Size::new(size.width as f64, size.height as f64);
+            root_element.layout(LayoutInfo {
+                parent: size,
+                available: SizeConstraint::Size(size),
+                scale_factor: self.scale_factor.get(),
+            });
+            root_element.place(Point::ORIGIN);
+            self.recompute_layout.set(false);
+        }
+
         scene.reset();
+        root_element.draw(scene);
+
+        let potentially_replaced = self.root_element.replace(root_element);
+        if !potentially_replaced.__private_implementation_detail_do_not_use() {
+            // The root element has been modified during one of the callbacks.
+            // Let's restore the requested new root element and destroy the temporary one.
+            self.root_element.set(potentially_replaced);
+        }
     }
 
     /// Renders the provided scene to this window.
@@ -42,7 +95,14 @@ impl WindowInner {
     /// Notifies the window that it has been resized.
     #[inline]
     pub fn notify_resized(&self, size: PhysicalSize<u32>) {
+        self.recompute_layout.set(true);
         self.window_and_surface.set_size(size);
+    }
+
+    /// Notifies the window that the scale factor of the window has changed.
+    pub fn notify_scale_factor_changed(&self, scale_factor: f64) {
+        self.scale_factor.set(scale_factor);
+        self.recompute_layout.set(true);
     }
 
     /// Returns a reference to the context that owns this window.
@@ -67,5 +127,13 @@ impl WindowInner {
     #[inline]
     pub fn set_base_color(&self, base_color: peniko::Color) {
         self.window_and_surface.set_base_color(base_color);
+    }
+
+    /// Sets the root element of the window.
+    #[inline]
+    pub fn set_root_element(&self, elem: Box<dyn Element>) {
+        self.root_element.set(elem);
+        self.recompute_layout.set(true);
+        self.window_and_surface.winit_window().request_redraw();
     }
 }

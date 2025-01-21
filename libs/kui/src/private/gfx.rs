@@ -159,18 +159,27 @@ impl WindowAndSurface {
     }
 
     /// Notifies the window that its size has changed.
+    #[inline]
     pub fn set_size(&self, new_size: PhysicalSize<u32>) {
         self.size.set(new_size);
         self.surface_dirty.set(true);
     }
 
+    /// Returns the cached size of the window/surface.
+    #[inline]
+    pub fn cached_size(&self) -> PhysicalSize<u32> {
+        self.size.get()
+    }
+
     /// Sets the present mode to be used when presenting the surface.
+    #[inline]
     pub fn set_present_mode(&self, present_mode: wgpu::PresentMode) {
         self.present_mode.set(present_mode);
         self.surface_dirty.set(true);
     }
 
     /// Sets the base color to use when clearing the surface.
+    #[inline]
     pub fn set_base_color(&self, color: peniko::Color) {
         self.base_color.set(color);
     }
