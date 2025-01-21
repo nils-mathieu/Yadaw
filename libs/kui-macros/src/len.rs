@@ -2,7 +2,7 @@ use proc_macro::{Delimiter, Group, Ident, Literal, Punct, Spacing, Span, TokenSt
 
 /// A possible suffix for a length literal.
 #[derive(Debug)]
-enum LengthSuffix {
+pub enum LengthSuffix {
     /// The length is specified in term of unscaled pixels.
     ///
     /// `upx`
@@ -81,7 +81,7 @@ fn parse_f64(s: &str, span: Span) -> Result<f64, ()> {
 
 /// A parsed length literal.
 #[derive(Debug)]
-enum Length {
+pub enum Length {
     /// The `0` literal.
     Zero,
     /// A literal value with a suffix.

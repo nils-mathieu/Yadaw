@@ -8,6 +8,41 @@ fn is_field_separator(tt: &TokenTree) -> bool {
     }
 }
 
+/// Returns whether the provided token strean is made of a single numeric literal with a non-standard
+/// suffix.
+fn is_numeric_literal_with_weird_suffix(tokens: TokenStream) -> bool {
+    let mut tokens = tokens.into_iter();
+    let yes = match tokens.next() {
+        Some(TokenTree::Literal(literal)) => {
+            let s = literal.to_string();
+            let number_len = s
+                .find(|c: char| !c.is_ascii_digit() && c != '.')
+                .unwrap_or(s.len());
+            let (num, suffix) = s.split_at(number_len);
+            num.parse::<f64>().is_ok()
+                && !matches!(
+                    suffix,
+                    "f64"
+                        | "f32"
+                        | "i32"
+                        | "i64"
+                        | "u32"
+                        | "u64"
+                        | "usize"
+                        | "isize"
+                        | "u8"
+                        | "i8"
+                        | "u16"
+                        | "i16"
+                        | "u128"
+                        | "i128"
+                )
+        }
+        _ => false,
+    };
+    tokens.next().is_none() && yes
+}
+
 /// Represents an element field declaration.
 struct ElementField {
     /// The identifier of the field.
@@ -19,10 +54,17 @@ struct ElementField {
 impl ElementField {
     /// Turns the field into a token stream.
     pub fn to_tokens(&self) -> TokenStream {
+        // If the value looks like a `Length`, use that. Otherwise just forward it.
+        let val = if is_numeric_literal_with_weird_suffix(self.value.clone()) {
+            crate::len(self.value.clone())
+        } else {
+            self.value.clone()
+        };
+
         [
             TokenTree::Punct(Punct::new('.', Spacing::Alone)),
             TokenTree::Ident(self.ident.clone()),
-            TokenTree::Group(Group::new(Delimiter::Parenthesis, self.value.clone())),
+            TokenTree::Group(Group::new(Delimiter::Parenthesis, val)),
         ]
         .into_iter()
         .collect()

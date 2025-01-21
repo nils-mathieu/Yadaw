@@ -1,7 +1,6 @@
 use kui::{
     elem,
     elements::{anchor, div},
-    len,
     peniko::Color,
     winit::{dpi::PhysicalSize, window::WindowAttributes},
 };
@@ -21,10 +20,10 @@ fn main() {
                 div {
                     brush: Color::from_rgb8(255, 0, 0),
                     border_brush: Color::from_rgb8(0, 255, 0),
-                    border_thickness: len!(2px),
-                    width: len!(128px),
-                    height: len!(128px),
-                    radius: len!(8px),
+                    border_thickness: 2px,
+                    width: 128px,
+                    height: 128px,
+                    radius: 8px,
                 }
             }
         });
