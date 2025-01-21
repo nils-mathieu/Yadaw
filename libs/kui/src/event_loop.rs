@@ -133,8 +133,11 @@ impl AppState {
     }
 
     /// Notifies the application that the event loop is about to start blocking for new events.
-    pub fn handle_about_to_wait(&mut self, _el: &ActiveEventLoop) {
-        // self.ctx.set_active_event_loop(el, || {});
+    pub fn handle_about_to_wait(&mut self, el: &ActiveEventLoop) {
+        match self.ctx.next_callback_time() {
+            Some(time) => el.set_control_flow(ControlFlow::WaitUntil(time)),
+            None => el.set_control_flow(ControlFlow::Wait),
+        }
     }
 }
 

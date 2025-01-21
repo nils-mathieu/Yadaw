@@ -9,7 +9,7 @@ use {
         time::Instant,
     },
     winit::{
-        event_loop::{ActiveEventLoop, ControlFlow},
+        event_loop::ActiveEventLoop,
         window::{WindowAttributes, WindowId},
     },
 };
@@ -44,8 +44,10 @@ pub struct CtxInner {
     /// A map used to transform window IDs to concrete [`WindowInner`] objects.
     windows: RefCell<FxHashMap<WindowId, Rc<WindowInner>>>,
 
-    /// A collection of functions to be called at a specific time.
+    /// A collection of functions to be called at specific times.
     callbacks: RefCell<SlotMap<CallbackId, Callback>>,
+    /// The time at which the next callback is scheduled to be called.
+    next_callback_time: Cell<Option<Instant>>,
 }
 
 impl CtxInner {
@@ -129,22 +131,29 @@ impl CtxInner {
     // CALLBACKS
     //
 
-    /// Registers a callback into the context.
-    ///
-    /// # Remarks
-    ///
-    /// This function will automatically update the control flow of the event loop if necessary.
-    pub fn register_callback(&self, time: Instant, callback: Box<dyn FnOnce()>) -> CallbackId {
-        self.with_active_event_loop(|el| match el.control_flow() {
-            ControlFlow::Wait => el.set_control_flow(ControlFlow::WaitUntil(time)),
-            ControlFlow::WaitUntil(next) => {
+    /// Updates the `next_callback_time` field with the provided time if it is earlier than the
+    /// current value.
+    fn request_callback_at(&self, time: Instant) {
+        match self.next_callback_time.get() {
+            Some(next) => {
                 if time < next {
-                    el.set_control_flow(ControlFlow::WaitUntil(time));
+                    self.next_callback_time.set(Some(time));
                 }
             }
-            ControlFlow::Poll => {}
-        });
+            None => {
+                self.next_callback_time.set(Some(time));
+            }
+        }
+    }
 
+    /// Returns the next callback time.
+    pub fn next_callback_time(&self) -> Option<Instant> {
+        self.next_callback_time.get()
+    }
+
+    /// Registers a callback into the context.
+    pub fn register_callback(&self, time: Instant, callback: Box<dyn FnOnce()>) -> CallbackId {
+        self.request_callback_at(time);
         self.callbacks.borrow_mut().insert(Callback {
             callback: Some(callback),
             time,
@@ -161,14 +170,13 @@ impl CtxInner {
     }
 
     /// Runs the callbacks that were scheduled to be called before `now`.
-    ///
-    /// # Remarks
-    ///
-    /// This function will automatically update the control flow of the event loop if necessary.
     pub fn run_callbacks(&self, now: Instant) {
         // NOTE: This part is a bit annoying because the actual callbacks we're running here
         // might themselves schedule new callbacks. For this reason, we need to make sure that
         // any time we run a callback, we can't be holding a reference to the `callbacks` field.
+
+        // We reached our own callback time, so we can reset the next callback time.
+        self.next_callback_time.set(None);
 
         let mut next_instant: Option<Instant> = None;
         let mut ready_callbacks = SmallVec::<[Box<dyn FnOnce()>; 4]>::new();
@@ -196,10 +204,11 @@ impl CtxInner {
         // Actually execute the callbacks now that we're not holding the `callbacks` lock.
         ready_callbacks.into_iter().for_each(|cb| cb());
 
-        self.with_active_event_loop(|el| match next_instant {
-            Some(next) => el.set_control_flow(ControlFlow::WaitUntil(next)),
-            None => el.set_control_flow(ControlFlow::Wait),
-        });
+        if let Some(next) = next_instant {
+            // We can't just override the value because it's possible that a new earlier
+            // callback was scheduled while we were running the current ones.
+            self.request_callback_at(next);
+        }
     }
 }
 
