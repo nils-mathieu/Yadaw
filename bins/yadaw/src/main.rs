@@ -1,6 +1,6 @@
 use kui::{
     elem,
-    elements::{anchor, div},
+    elements::{anchor, div, label},
     winit::{dpi::PhysicalSize, window::WindowAttributes},
 };
 
@@ -16,13 +16,15 @@ fn main() {
         wnd.set_root_element(elem! {
             anchor {
                 align_center,
+
                 div {
-                    brush: "#FF0000",
-                    border_brush: "#00FF00",
-                    border_thickness: 2px,
-                    width: 128px,
-                    height: 128px,
-                    radius: 8px,
+                    brush: "#f00",
+                    width: 100px,
+                    height: 100px,
+
+                    label {
+                        text: "Helloooo, world!",
+                    }
                 }
             }
         });

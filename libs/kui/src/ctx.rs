@@ -177,6 +177,14 @@ impl Ctx {
         self.inner()
             .with_resources_mut(|map| f(map.get_or_insert_default()))
     }
+
+    /// Ensures that a particular resource is present.
+    ///
+    /// If the resource is not present, its default value will be inserted into the resource map.
+    #[track_caller]
+    pub fn ensure_resource_present<T: 'static + Default>(&self) {
+        self.with_resource_or_default(|_: &mut T| ());
+    }
 }
 
 impl Debug for Ctx {

@@ -1,6 +1,6 @@
 use {
     crate::{
-        SizeConstraint,
+        Ctx, ElemContext, SizeConstraint, Window,
         element::{Element, LayoutInfo},
         private::{CtxInner, Renderer, WindowAndSurface},
     },
@@ -9,7 +9,7 @@ use {
         kurbo::{self, Point},
         peniko, wgpu,
     },
-    winit::{dpi::PhysicalSize, window::Window},
+    winit::{dpi::PhysicalSize, window::Window as WinitWindow},
 };
 
 /// The inner state associated with a window.
@@ -50,7 +50,7 @@ impl WindowInner {
     /// # Remarks
     ///
     /// This function might call user-defined functions!
-    pub fn draw_to_scene(&self, scene: &mut vello::Scene) {
+    pub fn draw_to_scene(self: &Rc<Self>, scene: &mut vello::Scene) {
         // This custom element is used as a sentinel to check whether the root element of the
         // window has changed during the draw callback.
         struct PrivateElement;
@@ -62,21 +62,26 @@ impl WindowInner {
         }
 
         let mut root_element = self.root_element.replace(Box::new(PrivateElement));
+        let elem_context = ElemContext {
+            ctx: Ctx(Rc::downgrade(&self.ctx)),
+            window: Window(Rc::downgrade(self)),
+        };
 
         if self.recompute_layout.get() {
             let size = self.window_and_surface.cached_size();
             let size = kurbo::Size::new(size.width as f64, size.height as f64);
-            root_element.layout(LayoutInfo {
+
+            root_element.layout(&elem_context, LayoutInfo {
                 parent: size,
                 available: SizeConstraint::from_size(size),
                 scale_factor: self.scale_factor.get(),
             });
-            root_element.place(Point::ORIGIN);
+            root_element.place(&elem_context, Point::ORIGIN);
             self.recompute_layout.set(false);
         }
 
         scene.reset();
-        root_element.draw(scene);
+        root_element.draw(&elem_context, scene);
 
         let potentially_replaced = self.root_element.replace(root_element);
         if !potentially_replaced.__private_implementation_detail_do_not_use() {
@@ -111,9 +116,9 @@ impl WindowInner {
         &self.ctx
     }
 
-    /// Returns a reference to the concrete winit [`Window`] object.
+    /// Returns a reference to the concrete winit [`Window`](WinitWindow) object.
     #[inline]
-    pub fn winit_window(&self) -> &Window {
+    pub fn winit_window(&self) -> &WinitWindow {
         self.window_and_surface.winit_window()
     }
 

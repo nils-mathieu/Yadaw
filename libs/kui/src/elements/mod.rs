@@ -14,3 +14,8 @@ pub fn div() -> self::div::Div<()> {
 pub fn anchor() -> self::anchor::Anchor<()> {
     self::anchor::Anchor::default()
 }
+
+/// Creates a new [`Text`] element.
+pub fn label() -> self::text::Text<self::text::UniformStyle> {
+    self::text::Text::default()
+}

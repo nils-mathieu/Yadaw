@@ -51,7 +51,7 @@ fn quote_color_rgba(r: u8, g: u8, b: u8, a: u8, span: Span) -> TokenStream {
     quote_color_path(span)
         .into_iter()
         .chain([
-            TokenTree::Ident(Ident::new("from_rgb8", span)),
+            TokenTree::Ident(Ident::new("from_rgba8", span)),
             TokenTree::Group(Group::new(
                 Delimiter::Parenthesis,
                 [

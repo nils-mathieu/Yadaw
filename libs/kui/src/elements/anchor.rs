@@ -1,6 +1,9 @@
 use {
     super::Length,
-    crate::{Element, ElementMetrics, FocusDirection, FocusResult, LayoutInfo, SizeConstraint},
+    crate::{
+        ElemContext, Element, ElementMetrics, FocusDirection, FocusResult, LayoutInfo,
+        SizeConstraint,
+    },
     vello::kurbo::{Point, Size, Vec2},
 };
 
@@ -106,7 +109,7 @@ impl<E> Anchor<E> {
 }
 
 impl<E: ?Sized + Element> Element for Anchor<E> {
-    fn layout(&mut self, info: LayoutInfo) {
+    fn layout(&mut self, elem_context: &ElemContext, info: LayoutInfo) {
         let mut my_width = if self.style.fill_width {
             info.available.width().expect("Can't use a space-filling `Anchor` element when no max-width constraint is available")
         } else {
@@ -131,7 +134,7 @@ impl<E: ?Sized + Element> Element for Anchor<E> {
             info.available.height()
         };
 
-        self.child.layout(LayoutInfo {
+        self.child.layout(elem_context, LayoutInfo {
             parent: Size::new(my_width, my_height),
             available: SizeConstraint::new(available_width, available_height),
             scale_factor: info.scale_factor,
@@ -159,9 +162,10 @@ impl<E: ?Sized + Element> Element for Anchor<E> {
         };
     }
 
-    fn place(&mut self, pos: Point) {
+    fn place(&mut self, elem_context: &ElemContext, pos: Point) {
         self.computed_style.position = pos;
-        self.child.place(pos + self.computed_style.child_offset);
+        self.child
+            .place(elem_context, pos + self.computed_style.child_offset);
     }
 
     #[inline]
@@ -173,17 +177,17 @@ impl<E: ?Sized + Element> Element for Anchor<E> {
     }
 
     #[inline]
-    fn hit_test(&self, point: Point) -> bool {
-        self.child.hit_test(point)
+    fn hit_test(&self, elem_context: &ElemContext, point: Point) -> bool {
+        self.child.hit_test(elem_context, point)
     }
 
     #[inline]
-    fn move_focus(&mut self, dir: FocusDirection) -> FocusResult {
-        self.child.move_focus(dir)
+    fn move_focus(&mut self, elem_context: &ElemContext, dir: FocusDirection) -> FocusResult {
+        self.child.move_focus(elem_context, dir)
     }
 
     #[inline]
-    fn draw(&mut self, scene: &mut vello::Scene) {
-        self.child.draw(scene);
+    fn draw(&mut self, elem_context: &ElemContext, scene: &mut vello::Scene) {
+        self.child.draw(elem_context, scene);
     }
 }

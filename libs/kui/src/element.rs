@@ -4,6 +4,7 @@ use {
 };
 
 /// Represents the constrains of a size.
+#[derive(Clone, Copy)]
 pub struct SizeConstraint {
     width: f64,
     height: f64,
@@ -129,7 +130,38 @@ impl SizeConstraint {
     }
 }
 
+impl std::fmt::Debug for SizeConstraint {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SizeConstraint")
+            .field(
+                "width",
+                if self.has_height_constraint() {
+                    &self.width
+                } else {
+                    &"unconstrained"
+                },
+            )
+            .field(
+                "height",
+                if self.has_height_constraint() {
+                    &self.height
+                } else {
+                    &"unconstrained"
+                },
+            )
+            .finish()
+    }
+}
+
+impl Default for SizeConstraint {
+    #[inline]
+    fn default() -> Self {
+        Self::unconstrained()
+    }
+}
+
 /// The amount of space availble for an element.
+#[derive(Clone, Debug, Default)]
 pub struct LayoutInfo {
     /// The size of the parent element.
     pub parent: Size,
@@ -213,7 +245,7 @@ pub trait Element {
     ///
     /// Calling this function may reset the element's position.
     #[inline]
-    fn layout(&mut self, info: LayoutInfo) {}
+    fn layout(&mut self, elem_context: &ElemContext, info: LayoutInfo) {}
 
     /// Places the element at the provided position.
     ///
@@ -222,7 +254,7 @@ pub trait Element {
     /// This function should generally be called after the element has been properly laid
     /// out through the [`layout`](Element::layout) function.
     #[inline]
-    fn place(&mut self, pos: Point) {}
+    fn place(&mut self, elem_context: &ElemContext, pos: Point) {}
 
     /// Returns the metrics of the element.
     ///
@@ -243,7 +275,7 @@ pub trait Element {
 
     /// Moves the focus to the next element in the focus order.
     #[inline]
-    fn move_focus(&mut self, dir: FocusDirection) -> FocusResult {
+    fn move_focus(&mut self, elem_context: &ElemContext, dir: FocusDirection) -> FocusResult {
         FocusResult::Ignored
     }
 
@@ -253,7 +285,7 @@ pub trait Element {
     ///
     /// This function must be called after the element has been laid out and placed.
     #[inline]
-    fn hit_test(&self, point: Point) -> bool {
+    fn hit_test(&self, elem_context: &ElemContext, point: Point) -> bool {
         false
     }
 
@@ -263,7 +295,7 @@ pub trait Element {
     ///
     /// This function must be called after the element has been laid out and placed.
     #[inline]
-    fn draw(&mut self, scene: &mut vello::Scene) {}
+    fn draw(&mut self, elem_context: &ElemContext, scene: &mut vello::Scene) {}
 
     #[doc(hidden)]
     #[inline]

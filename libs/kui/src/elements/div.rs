@@ -1,7 +1,7 @@
 use {
     crate::{
-        Element, ElementMetrics, FocusDirection, FocusResult, LayoutInfo, SizeConstraint,
-        elements::Length,
+        ElemContext, Element, ElementMetrics, FocusDirection, FocusResult, LayoutInfo,
+        SizeConstraint, elements::Length,
     },
     smallvec::smallvec,
     vello::{
@@ -182,7 +182,7 @@ impl<E> Div<E> {
     }
 
     /// Sets the child of the [`Div`] element.
-    pub fn add_child<E2>(self, child: E2) -> Div<E2> {
+    pub fn child<E2>(self, child: E2) -> Div<E2> {
         Div {
             style: self.style,
             computed_style: DivComputedStyle::default(),
@@ -200,7 +200,7 @@ impl<E: ?Sized + Element> Div<E> {
 }
 
 impl<E: ?Sized + Element> Element for Div<E> {
-    fn layout(&mut self, info: LayoutInfo) {
+    fn layout(&mut self, elem_context: &ElemContext, info: LayoutInfo) {
         let border_thickness = self.style.border_thickness.resolve(&info);
 
         let padding_left = self.style.padding_left.resolve(&info) + border_thickness;
@@ -221,7 +221,7 @@ impl<E: ?Sized + Element> Element for Div<E> {
             .or(info.available.height())
             .map(|h| h - vertical_padding);
 
-        self.child.layout(LayoutInfo {
+        self.child.layout(elem_context, LayoutInfo {
             parent: Size {
                 width: content_width.unwrap_or_default(),
                 height: content_height.unwrap_or_default(),
@@ -252,9 +252,10 @@ impl<E: ?Sized + Element> Element for Div<E> {
     }
 
     #[inline]
-    fn place(&mut self, pos: Point) {
+    fn place(&mut self, elem_context: &ElemContext, pos: Point) {
         self.computed_style.position = pos;
-        self.child.place(pos + self.computed_style.child_offset);
+        self.child
+            .place(elem_context, pos + self.computed_style.child_offset);
     }
 
     fn metrics(&self) -> ElementMetrics {
@@ -264,8 +265,8 @@ impl<E: ?Sized + Element> Element for Div<E> {
         }
     }
 
-    fn hit_test(&self, point: Point) -> bool {
-        if !self.style.clip_content && self.child.hit_test(point) {
+    fn hit_test(&self, elem_context: &ElemContext, point: Point) -> bool {
+        if !self.style.clip_content && self.child.hit_test(elem_context, point) {
             return true;
         }
 
@@ -277,11 +278,11 @@ impl<E: ?Sized + Element> Element for Div<E> {
     }
 
     #[inline]
-    fn move_focus(&mut self, dir: FocusDirection) -> FocusResult {
-        self.child.move_focus(dir)
+    fn move_focus(&mut self, elem_context: &ElemContext, dir: FocusDirection) -> FocusResult {
+        self.child.move_focus(elem_context, dir)
     }
 
-    fn draw(&mut self, scene: &mut vello::Scene) {
+    fn draw(&mut self, elem_context: &ElemContext, scene: &mut vello::Scene) {
         let outer_shape = self.computed_shape();
 
         if let Some(brush) = self.style.brush.as_ref() {
@@ -321,7 +322,7 @@ impl<E: ?Sized + Element> Element for Div<E> {
             );
         }
 
-        self.child.draw(scene);
+        self.child.draw(elem_context, scene);
 
         if self.style.clip_content {
             scene.pop_layer();
