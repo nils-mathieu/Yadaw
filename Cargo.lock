@@ -689,6 +689,7 @@ checksum = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
 name = "kui"
 version = "0.0.0"
 dependencies = [
+ "kui-macros",
  "pollster",
  "rustc-hash 2.1.0",
  "slotmap",
@@ -696,6 +697,10 @@ dependencies = [
  "vello",
  "winit",
 ]
+
+[[package]]
+name = "kui-macros"
+version = "0.0.0"
 
 [[package]]
 name = "kurbo"

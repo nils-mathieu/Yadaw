@@ -1,0 +1,7 @@
+[package]
+name = "kui-macros"
+edition = "2024"
+publish = false
+
+[lib]
+proc-macro = true

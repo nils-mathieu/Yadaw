@@ -1,5 +1,6 @@
 use kui::{
     elements::Length,
+    len,
     peniko::Color,
     winit::{dpi::PhysicalSize, window::WindowAttributes},
 };
@@ -19,10 +20,10 @@ fn main() {
                     .with_brush(Color::from_rgb8(255, 0, 0))
                     .with_border_brush(Color::from_rgb8(0, 255, 0))
                     .with_border_thickness(Length::Pixels(2.0))
-                    .with_width(Length::Pixels(128.0))
-                    .with_height(Length::Pixels(128.0))
-                    .with_radius(Length::Pixels(8.0)),
+                    .with_width(len!(128px))
+                    .with_height(len!(128px))
+                    .with_radius(len!(8px)),
             ),
-        )
+        );
     });
 }

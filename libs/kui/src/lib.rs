@@ -13,6 +13,8 @@ pub use {
     winit,
 };
 
+pub use kui_macros::*;
+
 mod private;
 
 pub mod event_loop;
