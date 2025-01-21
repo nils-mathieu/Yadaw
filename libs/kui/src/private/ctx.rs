@@ -1,5 +1,8 @@
 use {
-    crate::{CallbackId, private::WindowInner},
+    crate::{
+        CallbackId,
+        private::{Renderer, WindowAndSurface, WindowInner},
+    },
     rustc_hash::FxHashMap,
     slotmap::SlotMap,
     smallvec::SmallVec,
@@ -26,6 +29,20 @@ struct Callback {
     time: Instant,
 }
 
+/// Just a simple structure that holds the windows and the renderer.
+///
+/// This avoids having multiple `RefCell` objects for stuff that will always be used together.
+#[derive(Default)]
+struct RendererAndWindows {
+    /// The renderer responsible for drawing stuff on the screen.
+    ///
+    /// It is only created when the first window is created because it needs to know the window
+    /// in order to initialize itself.
+    renderer: Option<Renderer>,
+    /// A map used to transform window IDs to concrete [`WindowInner`] objects.
+    windows: FxHashMap<WindowId, Rc<WindowInner>>,
+}
+
 /// The inner state of [`Ctx`](crate::Ctx).
 #[derive(Default)]
 pub struct CtxInner {
@@ -41,8 +58,8 @@ pub struct CtxInner {
     /// the same reference.
     active_event_loop: Cell<Option<&'static ActiveEventLoop>>,
 
-    /// A map used to transform window IDs to concrete [`WindowInner`] objects.
-    windows: RefCell<FxHashMap<WindowId, Rc<WindowInner>>>,
+    /// The renderer and the windows.
+    renderer_and_windows: RefCell<RendererAndWindows>,
 
     /// A collection of functions to be called at specific times.
     callbacks: RefCell<SlotMap<CallbackId, Callback>>,
@@ -106,16 +123,81 @@ impl CtxInner {
     //
 
     /// Creates a new window and returns its ID.
-    pub fn create_window(self: &Rc<Self>, window: WindowAttributes) -> Rc<WindowInner> {
+    pub fn create_window(self: &Rc<Self>, mut window: WindowAttributes) -> Rc<WindowInner> {
+        // We only want to show the window once we have rendered a full frame for it.
+        let show_window = window.visible;
+        window.visible = false;
+
         let window = self.with_active_event_loop(|el| {
             el.create_window(window)
                 .unwrap_or_else(|err| panic!("Failed to create new window: {err}"))
         });
         let id = window.id();
 
-        let window_inner = Rc::new(WindowInner::new(self.clone(), window));
-        self.windows.borrow_mut().insert(id, window_inner.clone());
+        let mut renderer_and_windows = self.renderer_and_windows.borrow_mut();
+        let RendererAndWindows { renderer, windows } = &mut *renderer_and_windows;
+
+        let window_and_surface;
+        match renderer {
+            Some(renderer) => window_and_surface = WindowAndSurface::new(renderer, window),
+            None => {
+                let renderer_val;
+                (renderer_val, window_and_surface) = Renderer::new_for_window(window);
+                *renderer = Some(renderer_val);
+            }
+        };
+
+        let window_inner = Rc::new(WindowInner::new(self.clone(), window_and_surface));
+
+        if show_window {
+            let mut scene = vello::Scene::new();
+            window_inner.draw_to_scene(&mut scene);
+            window_inner.render_scene(renderer.as_mut().unwrap(), &scene);
+            window_inner.winit_window().set_visible(true);
+        }
+
+        windows.insert(id, window_inner.clone());
         window_inner
+    }
+
+    /// Requests a particular window to redraw itself.
+    ///
+    /// # Panics
+    ///
+    /// This function panics if the window with the provided ID does not exist.
+    #[track_caller]
+    pub fn redraw_window(&self, scratch_scene: &mut vello::Scene, window_id: WindowId) {
+        let window = self
+            .renderer_and_windows
+            .borrow_mut()
+            .windows
+            .get(&window_id)
+            .expect("Window ID not found")
+            .clone();
+
+        window.draw_to_scene(scratch_scene);
+
+        let mut renderer_and_windows = self.renderer_and_windows.borrow_mut();
+        let RendererAndWindows { renderer, windows } = &mut *renderer_and_windows;
+        windows
+            .get(&window_id)
+            .unwrap()
+            .render_scene(renderer.as_mut().unwrap(), scratch_scene);
+    }
+
+    /// Calls the provided function with a reference to the window with the provided ID.
+    ///
+    /// # Panics
+    ///
+    /// This function panics if the window with the provided ID does not exist.
+    #[track_caller]
+    pub fn with_window<R>(&self, id: WindowId, f: impl FnOnce(&WindowInner) -> R) -> R {
+        f(self
+            .renderer_and_windows
+            .borrow()
+            .windows
+            .get(&id)
+            .expect("Window ID not found"))
     }
 
     /// Removes a window from the context.
@@ -124,7 +206,11 @@ impl CtxInner {
     ///
     /// This function returns whether the window was successfully removed.
     pub fn remove_window(&self, id: WindowId) -> bool {
-        self.windows.borrow_mut().remove(&id).is_some()
+        self.renderer_and_windows
+            .borrow_mut()
+            .windows
+            .remove(&id)
+            .is_some()
     }
 
     //
@@ -147,6 +233,7 @@ impl CtxInner {
     }
 
     /// Returns the next callback time.
+    #[inline]
     pub fn next_callback_time(&self) -> Option<Instant> {
         self.next_callback_time.get()
     }

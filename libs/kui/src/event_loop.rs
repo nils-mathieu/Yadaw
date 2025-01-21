@@ -8,7 +8,6 @@ use {
         application::ApplicationHandler,
         event::{StartCause, WindowEvent},
         event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
-        keyboard::KeyCode,
         window::WindowId,
     },
 };
@@ -90,6 +89,8 @@ impl<'a> EventHandler<'a> {
 struct AppState {
     /// The global application context.
     ctx: Rc<CtxInner>,
+    /// The scratch scene used when rendering a window.
+    scratch_scene: vello::Scene,
 }
 
 impl AppState {
@@ -97,24 +98,29 @@ impl AppState {
     pub fn initialize(el: &ActiveEventLoop, init_fn: InitFn) -> Self {
         let ctx = Rc::new(CtxInner::default());
         ctx.set_active_event_loop(el, || init_fn(Ctx(Rc::downgrade(&ctx))));
-        Self { ctx }
+        Self {
+            ctx,
+            scratch_scene: vello::Scene::default(),
+        }
     }
 
     /// Handles a window event for the application.
     pub fn handle_window_event(
         &mut self,
         el: &ActiveEventLoop,
-        _window_id: WindowId,
+        window_id: WindowId,
         event: WindowEvent,
     ) {
         self.ctx.set_active_event_loop(el, || match event {
             WindowEvent::CloseRequested => {
                 el.exit();
             }
-            WindowEvent::KeyboardInput { event, .. } => {
-                if event.state.is_pressed() && event.physical_key == KeyCode::Escape {
-                    el.exit();
-                }
+            WindowEvent::Resized(new_size) => {
+                self.ctx
+                    .with_window(window_id, |window| window.notify_resized(new_size));
+            }
+            WindowEvent::RedrawRequested => {
+                self.ctx.redraw_window(&mut self.scratch_scene, window_id);
             }
             _ => {}
         });

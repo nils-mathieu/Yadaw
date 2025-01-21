@@ -4,6 +4,7 @@ use {
         fmt::Debug,
         rc::{Rc, Weak},
     },
+    vello::{peniko, wgpu},
 };
 
 /// A window that is managed by the application.
@@ -41,6 +42,29 @@ impl Window {
         let inner = self.inner();
         let id = inner.winit_window().id();
         inner.ctx().remove_window(id);
+    }
+
+    /// Calls the provided function with a reference to the concrete winit [`Window`] object
+    /// backing this window.
+    #[track_caller]
+    pub fn with_winit_window<R>(&self, f: impl FnOnce(&winit::window::Window) -> R) -> R {
+        f(self.inner().winit_window())
+    }
+
+    /// Sets the clear color of the window.
+    #[track_caller]
+    pub fn set_clear_color(&self, color: impl Into<peniko::Color>) {
+        self.inner().set_base_color(color.into());
+    }
+
+    /// Sets whether the window should use V-Sync or not.
+    #[track_caller]
+    pub fn set_vsync(&self, vsync: bool) {
+        self.inner().set_present_mode(if vsync {
+            wgpu::PresentMode::AutoVsync
+        } else {
+            wgpu::PresentMode::AutoNoVsync
+        });
     }
 }
 
