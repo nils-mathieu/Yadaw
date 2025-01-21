@@ -103,37 +103,37 @@ impl Default for Div<()> {
 
 impl<E> Div<E> {
     /// Sets the background brush of the [`Div`] element.
-    pub fn with_brush(mut self, brush: impl Into<Brush>) -> Self {
+    pub fn brush(mut self, brush: impl Into<Brush>) -> Self {
         self.style.brush = Some(brush.into());
         self
     }
 
     /// Sets the top-left radius of the [`Div`] element.
-    pub fn with_top_left_radius(mut self, radius: Length) -> Self {
+    pub fn top_left_radius(mut self, radius: Length) -> Self {
         self.style.top_left_radius = radius;
         self
     }
 
     /// Sets the top-right radius of the [`Div`] element.
-    pub fn with_top_right_radius(mut self, radius: Length) -> Self {
+    pub fn top_right_radius(mut self, radius: Length) -> Self {
         self.style.top_right_radius = radius;
         self
     }
 
     /// Sets the bottom-left radius of the [`Div`] element.
-    pub fn with_bottom_left_radius(mut self, radius: Length) -> Self {
+    pub fn bottom_left_radius(mut self, radius: Length) -> Self {
         self.style.bottom_left_radius = radius;
         self
     }
 
     /// Sets the bottom-right radius of the [`Div`] element.
-    pub fn with_bottom_right_radius(mut self, radius: Length) -> Self {
+    pub fn bottom_right_radius(mut self, radius: Length) -> Self {
         self.style.bottom_right_radius = radius;
         self
     }
 
     /// Sets the radius of all four corners of the [`Div`] element.
-    pub fn with_radius(mut self, radius: Length) -> Self {
+    pub fn radius(mut self, radius: Length) -> Self {
         self.style.top_left_radius = radius.clone();
         self.style.top_right_radius = radius.clone();
         self.style.bottom_left_radius = radius.clone();
@@ -142,43 +142,43 @@ impl<E> Div<E> {
     }
 
     /// Sets the border brush of the [`Div`] element.
-    pub fn with_border_brush(mut self, brush: impl Into<Brush>) -> Self {
+    pub fn border_brush(mut self, brush: impl Into<Brush>) -> Self {
         self.style.border_brush = Some(brush.into());
         self
     }
 
     /// Sets the border thickness of the [`Div`] element.
-    pub fn with_border_thickness(mut self, thickness: Length) -> Self {
+    pub fn border_thickness(mut self, thickness: Length) -> Self {
         self.style.border_thickness = thickness;
         self
     }
 
     /// Sets the border dash of the [`Div`] element.
-    pub fn with_border_dash(mut self, dash: Length) -> Self {
+    pub fn border_dash(mut self, dash: Length) -> Self {
         self.style.border_dash = dash;
         self
     }
 
     /// Sets the border dash offset of the [`Div`] element.
-    pub fn with_border_dash_offset(mut self, offset: Length) -> Self {
+    pub fn border_dash_offset(mut self, offset: Length) -> Self {
         self.style.border_dash_offset = offset;
         self
     }
 
     /// Sets the width of the [`Div`] element.
-    pub fn with_width(mut self, width: Length) -> Self {
+    pub fn width(mut self, width: Length) -> Self {
         self.style.width = Some(width);
         self
     }
 
     /// Sets the height of the [`Div`] element.
-    pub fn with_height(mut self, height: Length) -> Self {
+    pub fn height(mut self, height: Length) -> Self {
         self.style.height = Some(height);
         self
     }
 
     /// Sets whether the content of the [`Div`] element should be clipped.
-    pub fn with_clip_content(mut self, clip_content: bool) -> Self {
+    pub fn clip_content(mut self, clip_content: bool) -> Self {
         self.style.clip_content = clip_content;
         self
     }
@@ -186,13 +186,13 @@ impl<E> Div<E> {
     /// The opacity value of the [`Div`] element.
     ///
     /// Note that this will only take effect when `clip_content` is set.
-    pub fn with_opacity(mut self, opacity: f32) -> Self {
+    pub fn opacity(mut self, opacity: f32) -> Self {
         self.style.opacity = opacity;
         self
     }
 
     /// Sets the child of the [`Div`] element.
-    pub fn with_child<E2>(self, child: E2) -> Div<E2> {
+    pub fn add_child<E2>(self, child: E2) -> Div<E2> {
         Div {
             style: self.style,
             computed_style: DivComputedStyle::default(),

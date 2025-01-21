@@ -65,39 +65,39 @@ impl Default for Anchor<()> {
 
 impl<E> Anchor<E> {
     /// Sets the anchor point of the child element of this [`Anchor`].
-    pub fn with_anchor(mut self, x: f64, y: f64) -> Self {
+    pub fn anchor(mut self, x: f64, y: f64) -> Self {
         self.style.anchor_x = x;
         self.style.anchor_y = y;
         self
     }
 
     /// Sets the offset of the child element of this [`Anchor`].
-    pub fn with_offset(mut self, x: Length, y: Length) -> Self {
+    pub fn offset(mut self, x: Length, y: Length) -> Self {
         self.style.offset_x = x;
         self.style.offset_y = y;
         self
     }
 
     /// Sets whether this [`Anchor`] element should fill the width of its parent.
-    pub fn with_fill_width(mut self, fill: bool) -> Self {
+    pub fn fill_width(mut self, fill: bool) -> Self {
         self.style.fill_width = fill;
         self
     }
 
     /// Sets whether this [`Anchor`] element should fill the height of its parent.
-    pub fn with_fill_height(mut self, fill: bool) -> Self {
+    pub fn fill_height(mut self, fill: bool) -> Self {
         self.style.fill_height = fill;
         self
     }
 
     /// Sets whether this [`Anchor`] element should fit its child element.
-    pub fn with_fit_child(mut self, fit: bool) -> Self {
+    pub fn fit_child(mut self, fit: bool) -> Self {
         self.style.fit_child = fit;
         self
     }
 
     /// Sets the child element of this [`Anchor`].
-    pub fn with_child<E2>(self, child: E2) -> Anchor<E2> {
+    pub fn child<E2>(self, child: E2) -> Anchor<E2> {
         Anchor {
             style: self.style,
             computed_style: AnchorComputedStyle::default(),

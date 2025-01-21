@@ -1,5 +1,6 @@
 use kui::{
-    elements::Length,
+    elem,
+    elements::{anchor, div},
     len,
     peniko::Color,
     winit::{dpi::PhysicalSize, window::WindowAttributes},
@@ -14,16 +15,18 @@ fn main() {
                 .with_inner_size(PhysicalSize::new(1280, 720)),
         );
 
-        wnd.set_root_element(
-            kui::elements::anchor().align_center().with_child(
-                kui::elements::div()
-                    .with_brush(Color::from_rgb8(255, 0, 0))
-                    .with_border_brush(Color::from_rgb8(0, 255, 0))
-                    .with_border_thickness(Length::Pixels(2.0))
-                    .with_width(len!(128px))
-                    .with_height(len!(128px))
-                    .with_radius(len!(8px)),
-            ),
-        );
+        wnd.set_root_element(elem! {
+            anchor {
+                align_center,
+                div {
+                    brush: Color::from_rgb8(255, 0, 0),
+                    border_brush: Color::from_rgb8(0, 255, 0),
+                    border_thickness: len!(2px),
+                    width: len!(128px),
+                    height: len!(128px),
+                    radius: len!(8px),
+                }
+            }
+        });
     });
 }
