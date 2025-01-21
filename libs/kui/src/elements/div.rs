@@ -1,13 +1,22 @@
 use {
-    crate::{Element, ElementMetrics, LayoutInfo, elements::Length},
-    vello::{kurbo::Point, peniko::Brush},
+    crate::{
+        Element, ElementMetrics, FocusDirection, FocusResult, LayoutInfo, SizeConstraint,
+        elements::Length,
+    },
+    smallvec::smallvec,
+    vello::{
+        kurbo::{
+            Affine, Insets, Point, Rect, RoundedRect, RoundedRectRadii, Shape, Size, Stroke, Vec2,
+        },
+        peniko::{Brush, Fill, Mix},
+    },
 };
 
 /// The style associated with a [`Div`] element.
 ///
 /// The documentation for individual fields can be found in the builder-like methods of the
 /// [`Div`] type.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct DivStyle {
     pub brush: Option<Brush>,
     pub top_left_radius: Length,
@@ -24,7 +33,51 @@ pub struct DivStyle {
     pub padding_bottom: Length,
     pub width: Option<Length>,
     pub clip_content: bool,
+    pub opacity: f32,
     pub height: Option<Length>,
+}
+
+impl Default for DivStyle {
+    fn default() -> Self {
+        Self {
+            brush: None,
+            top_left_radius: Length::ZERO,
+            top_right_radius: Length::ZERO,
+            bottom_left_radius: Length::ZERO,
+            bottom_right_radius: Length::ZERO,
+            border_brush: None,
+            border_thickness: Length::ZERO,
+            border_dash: Length::ZERO,
+            border_dash_offset: Length::ZERO,
+            padding_left: Length::ZERO,
+            padding_right: Length::ZERO,
+            padding_top: Length::ZERO,
+            padding_bottom: Length::ZERO,
+            width: None,
+            clip_content: false,
+            opacity: 1.0,
+            height: None,
+        }
+    }
+}
+
+/// The computed style of a [`Div`] element.
+#[derive(Default, Clone, Debug)]
+pub struct DivComputedStyle {
+    /// The size of the element.
+    pub size: Size,
+    /// The position of the element.
+    pub position: Point,
+    /// The offset of the child element, relative to the parent element.
+    pub child_offset: Vec2,
+    /// The corner radiuses of the element.
+    pub corner_radiuses: RoundedRectRadii,
+    /// The thickness of the element's border.
+    pub border_thickness: f64,
+    /// The length of the element's border dash.
+    pub border_dash: f64,
+    /// The offset between the dashes of the element's border.
+    pub border_dash_offset: f64,
 }
 
 /// Works a bit like an HTML `<div>` element, except it does not provide any layout capabilities.
@@ -32,6 +85,8 @@ pub struct DivStyle {
 pub struct Div<E: ?Sized> {
     /// The style of the [`Div`] element.
     pub style: DivStyle,
+    /// The computed style of the [`Div`] element.
+    pub computed_style: DivComputedStyle,
     /// The child element of the [`Div`].
     pub child: E,
 }
@@ -40,6 +95,7 @@ impl Default for Div<()> {
     fn default() -> Self {
         Self {
             style: DivStyle::default(),
+            computed_style: DivComputedStyle::default(),
             child: (),
         }
     }
@@ -47,8 +103,8 @@ impl Default for Div<()> {
 
 impl<E> Div<E> {
     /// Sets the background brush of the [`Div`] element.
-    pub fn with_brush(mut self, brush: Brush) -> Self {
-        self.style.brush = Some(brush);
+    pub fn with_brush(mut self, brush: impl Into<Brush>) -> Self {
+        self.style.brush = Some(brush.into());
         self
     }
 
@@ -86,8 +142,8 @@ impl<E> Div<E> {
     }
 
     /// Sets the border brush of the [`Div`] element.
-    pub fn with_border_brush(mut self, brush: Brush) -> Self {
-        self.style.border_brush = Some(brush);
+    pub fn with_border_brush(mut self, brush: impl Into<Brush>) -> Self {
+        self.style.border_brush = Some(brush.into());
         self
     }
 
@@ -127,22 +183,158 @@ impl<E> Div<E> {
         self
     }
 
+    /// The opacity value of the [`Div`] element.
+    ///
+    /// Note that this will only take effect when `clip_content` is set.
+    pub fn with_opacity(mut self, opacity: f32) -> Self {
+        self.style.opacity = opacity;
+        self
+    }
+
     /// Sets the child of the [`Div`] element.
     pub fn with_child<E2>(self, child: E2) -> Div<E2> {
         Div {
             style: self.style,
+            computed_style: DivComputedStyle::default(),
             child,
         }
     }
 }
 
+impl<E: ?Sized + Element> Div<E> {
+    /// Computes the shape that the div element will be rendered with.
+    pub fn computed_shape(&self) -> RoundedRect {
+        Rect::from_origin_size(self.computed_style.position, self.computed_style.size)
+            .to_rounded_rect(self.computed_style.corner_radiuses)
+    }
+}
+
 impl<E: ?Sized + Element> Element for Div<E> {
     fn layout(&mut self, info: LayoutInfo) {
-        let total_width = self.style.width.as_ref().map_or(0.0, |w| w.resolve(&info));
-        let total_height = self.style.height.as_ref().map_or(0.0, |h| h.resolve(&info));
+        let border_thickness = self.style.border_thickness.resolve(&info);
+
+        let padding_left = self.style.padding_left.resolve(&info) + border_thickness;
+        let padding_right = self.style.padding_right.resolve(&info) + border_thickness;
+        let padding_top = self.style.padding_top.resolve(&info) + border_thickness;
+        let padding_bottom = self.style.padding_bottom.resolve(&info) + border_thickness;
+
+        let horizontal_padding = padding_left + padding_right;
+        let vertical_padding = padding_top + padding_bottom;
+
+        let requested_width = self.style.width.as_ref().map(|w| w.resolve(&info));
+        let requested_height = self.style.height.as_ref().map(|h| h.resolve(&info));
+
+        let content_width = requested_width
+            .or(info.available.width())
+            .map(|w| w - horizontal_padding);
+        let content_height = requested_height
+            .or(info.available.height())
+            .map(|h| h - vertical_padding);
+
+        self.child.layout(LayoutInfo {
+            parent: Size {
+                width: content_width.unwrap_or_default(),
+                height: content_height.unwrap_or_default(),
+            },
+            available: SizeConstraint::new(content_width, content_height),
+            scale_factor: info.scale_factor,
+        });
+
+        let child_metrics = self.child.metrics();
+
+        self.computed_style = DivComputedStyle {
+            size: Size {
+                width: requested_width.unwrap_or(child_metrics.size.width + horizontal_padding),
+                height: requested_height.unwrap_or(child_metrics.size.height + vertical_padding),
+            },
+            position: Point::ORIGIN,
+            child_offset: Vec2::new(padding_left, padding_top),
+            corner_radiuses: RoundedRectRadii {
+                top_left: self.style.top_left_radius.resolve(&info),
+                top_right: self.style.top_right_radius.resolve(&info),
+                bottom_right: self.style.bottom_left_radius.resolve(&info),
+                bottom_left: self.style.bottom_right_radius.resolve(&info),
+            },
+            border_thickness,
+            border_dash: self.style.border_dash.resolve(&info),
+            border_dash_offset: self.style.border_dash_offset.resolve(&info),
+        };
     }
 
-    fn metrics(&self) -> ElementMetrics {}
+    #[inline]
+    fn place(&mut self, pos: Point) {
+        self.computed_style.position = pos;
+        self.child.place(pos + self.computed_style.child_offset);
+    }
 
-    fn place(&mut self, pos: Point) {}
+    fn metrics(&self) -> ElementMetrics {
+        ElementMetrics {
+            position: self.computed_style.position,
+            size: self.computed_style.size,
+        }
+    }
+
+    fn hit_test(&self, point: Point) -> bool {
+        if !self.style.clip_content && self.child.hit_test(point) {
+            return true;
+        }
+
+        if self.style.brush.is_some() || self.style.border_brush.is_some() {
+            self.computed_shape().contains(point)
+        } else {
+            false
+        }
+    }
+
+    #[inline]
+    fn move_focus(&mut self, dir: FocusDirection) -> FocusResult {
+        self.child.move_focus(dir)
+    }
+
+    fn draw(&mut self, scene: &mut vello::Scene) {
+        let outer_shape = self.computed_shape();
+
+        if let Some(brush) = self.style.brush.as_ref() {
+            scene.fill(Fill::NonZero, Affine::IDENTITY, brush, None, &outer_shape);
+        }
+
+        if let Some(border_brush) = self.style.border_brush.as_ref() {
+            scene.stroke(
+                &Stroke {
+                    width: self.computed_style.border_thickness,
+                    dash_pattern: if self.computed_style.border_dash == 0.0 {
+                        smallvec![]
+                    } else {
+                        smallvec![self.computed_style.border_dash]
+                    },
+                    dash_offset: self.computed_style.border_dash_offset,
+                    ..Default::default()
+                },
+                Affine::IDENTITY,
+                border_brush,
+                None,
+                &(outer_shape.rect() - Insets::uniform(self.computed_style.border_thickness / 2.0))
+                    .to_rounded_rect(self.computed_style.corner_radiuses),
+            );
+        }
+
+        if self.style.clip_content {
+            scene.push_layer(
+                if self.style.opacity == 1.0 {
+                    Mix::Clip
+                } else {
+                    Mix::Normal
+                },
+                self.style.opacity,
+                Affine::IDENTITY,
+                &outer_shape,
+            );
+        }
+
+        self.child.draw(scene);
+
+        if self.style.clip_content {
+            scene.pop_layer();
+        }
+    }
 }

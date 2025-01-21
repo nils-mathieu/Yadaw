@@ -53,6 +53,10 @@ pub(crate) enum KuiEventInner {}
 
 /// The [`ApplicationHandler`] implementation that will be passed to [`winit`] to handle
 /// events for the application.
+#[allow(
+    clippy::large_enum_variant,
+    reason = "The value of the type won't ever be moved around. It's always accessed by reference once created."
+)]
 enum EventHandler<'a> {
     /// The event handler has not been initialized yet.
     ///

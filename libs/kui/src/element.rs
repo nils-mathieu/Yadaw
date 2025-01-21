@@ -1,20 +1,132 @@
 use {
     crate::{Ctx, Window},
-    vello::kurbo::{Point, Rect, Size},
+    vello::kurbo::{Point, Size},
 };
 
-pub enum SizeConstraint {
-    /// The element is free to use as much space as it wants.
-    None,
+/// Represents the constrains of a size.
+pub struct SizeConstraint {
+    width: f64,
+    height: f64,
+}
 
-    /// The width of the element is constrained to the provided maximum width.
-    Width(f64),
+impl SizeConstraint {
+    /// Creates a new [`SizeConstraint`] from the provided width and height.
+    ///
+    /// If either components are negative, it means that that component is not constrained.
+    pub const fn from_raw(width: f64, height: f64) -> Self {
+        Self { width, height }
+    }
 
-    /// The height of the element is constrained to the provided maximum height.
-    Height(f64),
+    /// Creates a new [`SizeConstraint`] from the provided width and height.
+    pub const fn new(width: Option<f64>, height: Option<f64>) -> Self {
+        debug_assert!(width.is_none() || width.unwrap().is_sign_positive());
+        debug_assert!(height.is_none() || height.unwrap().is_sign_positive());
+        Self {
+            width: match width {
+                Some(width) => width,
+                None => -1.0,
+            },
+            height: match height {
+                Some(height) => height,
+                None => -1.0,
+            },
+        }
+    }
 
-    /// The width and height of the element are constrained to the provided maximum size.
-    Size(Size),
+    /// Returns a new [`SizeConstraint`] from the provided size.
+    pub const fn from_size(size: Size) -> Self {
+        debug_assert!(size.width.is_sign_positive());
+        debug_assert!(size.height.is_sign_positive());
+        Self {
+            width: size.width,
+            height: size.height,
+        }
+    }
+
+    /// Creates a new [`SizeConstraint`] from the provided width and height.
+    pub const fn from_constraints(width: f64, height: f64) -> Self {
+        debug_assert!(width.is_sign_positive());
+        debug_assert!(height.is_sign_positive());
+        Self { width, height }
+    }
+
+    /// Creates a new unconstrained [`SizeConstraint`].
+    pub const fn unconstrained() -> Self {
+        Self {
+            width: -1.0,
+            height: -1.0,
+        }
+    }
+
+    /// Creates a new [`SizeConstraint`] with the provided width and an unconstrained height.
+    pub const fn from_width(width: f64) -> Self {
+        debug_assert!(width.is_sign_positive());
+        Self {
+            width,
+            height: -1.0,
+        }
+    }
+
+    /// Creates a new [`SizeConstraint`] with the provided height and an unconstrained width.
+    pub const fn from_height(height: f64) -> Self {
+        debug_assert!(height.is_sign_positive());
+        Self {
+            width: -1.0,
+            height,
+        }
+    }
+
+    /// Returns the maximum width available.
+    ///
+    /// If no width constraint is provided (the element is free to use any width), this function
+    /// returns `None`.
+    pub const fn width(&self) -> Option<f64> {
+        if self.has_width_constraint() {
+            Some(self.width)
+        } else {
+            None
+        }
+    }
+
+    /// Returns whether the element has a width constraint.
+    pub const fn has_width_constraint(&self) -> bool {
+        self.width.is_sign_positive()
+    }
+
+    /// Returns the maximum height available.
+    ///
+    /// If no height constraint is provided (the element is free to use any height), this function
+    /// returns `None`.
+    pub const fn height(&self) -> Option<f64> {
+        if self.has_height_constraint() {
+            Some(self.height)
+        } else {
+            None
+        }
+    }
+
+    /// Returns whether the element has a height constraint.
+    pub const fn has_height_constraint(&self) -> bool {
+        self.height.is_sign_positive()
+    }
+
+    /// Returns a [`SizeConstraint`] with the provided additional width constraint.
+    pub const fn with_width(mut self, width: f64) -> Self {
+        self.width = width;
+        self
+    }
+
+    /// Returns a [`SizeConstraint`] with the provided additional height constraint.
+    pub const fn with_height(mut self, height: f64) -> Self {
+        self.height = height;
+        self
+    }
+
+    /// Returns a [`SizeConstraint`] with the provided additional width constraint. Unconstrained
+    /// sides are set to zero.
+    pub fn size_or_zero(&self) -> Size {
+        Size::new(self.width.max(0.0), self.height.max(0.0))
+    }
 }
 
 /// The amount of space availble for an element.
@@ -32,10 +144,12 @@ pub struct LayoutInfo {
 }
 
 /// The computed metrics of a element.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct ElementMetrics {
-    /// The rectangle that the element occupies.
-    pub rect: Rect,
+    /// The position of the element.
+    pub position: Point,
+    /// The size of the element.
+    pub size: Size,
 }
 
 /// The result of navigating the focus out of an element.
@@ -101,17 +215,6 @@ pub trait Element {
     #[inline]
     fn layout(&mut self, info: LayoutInfo) {}
 
-    /// Returns the metrics of the element.
-    ///
-    /// # Requirements
-    ///
-    /// This function only returns valid values when the element has been laid out by calling
-    /// [`layout`](Element::layout).
-    #[inline]
-    fn metrics(&self) -> ElementMetrics {
-        ElementMetrics::default()
-    }
-
     /// Places the element at the provided position.
     ///
     /// # Requirements
@@ -120,6 +223,23 @@ pub trait Element {
     /// out through the [`layout`](Element::layout) function.
     #[inline]
     fn place(&mut self, pos: Point) {}
+
+    /// Returns the metrics of the element.
+    ///
+    /// # Requirements
+    ///
+    /// This function only returns valid values when the element has been laid out by calling
+    /// [`layout`](Element::layout).
+    ///
+    /// Additionally, the `position` field of the returned metrics will not be valid until the
+    /// [`place`] function has been called. It should always return the same value as whatever
+    /// [`place`] would have set it to.
+    ///
+    /// [`place`]: Element::place
+    #[inline]
+    fn metrics(&self) -> ElementMetrics {
+        ElementMetrics::default()
+    }
 
     /// Moves the focus to the next element in the focus order.
     #[inline]

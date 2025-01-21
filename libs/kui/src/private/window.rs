@@ -68,7 +68,7 @@ impl WindowInner {
             let size = kurbo::Size::new(size.width as f64, size.height as f64);
             root_element.layout(LayoutInfo {
                 parent: size,
-                available: SizeConstraint::Size(size),
+                available: SizeConstraint::from_size(size),
                 scale_factor: self.scale_factor.get(),
             });
             root_element.place(Point::ORIGIN);
