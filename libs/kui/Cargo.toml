@@ -2,3 +2,9 @@
 name = "kui"
 edition = "2024"
 publish = false
+
+[dependencies]
+winit = "0.30"
+rustc-hash = "2"
+slotmap = "1"
+smallvec = "1"
