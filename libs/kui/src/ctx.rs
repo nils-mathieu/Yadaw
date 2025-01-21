@@ -102,6 +102,81 @@ impl Ctx {
     pub fn cancel_callback(&self, id: CallbackId) -> bool {
         self.inner().cancel_callback(id)
     }
+
+    /// Calls the provided function with a reference to the requested resource.
+    ///
+    /// # Panics
+    ///
+    /// This function panics if the resource is not available.
+    #[track_caller]
+    pub fn with_resource<T, R>(&self, f: impl FnOnce(&T) -> R) -> R
+    where
+        T: 'static,
+    {
+        self.inner().with_resources(|map| {
+            f(map.get::<T>().unwrap_or_else(|| {
+                panic!(
+                    "Resource of type `{}` is not available",
+                    std::any::type_name::<T>()
+                )
+            }))
+        })
+    }
+
+    /// Calls the provided function with a mutable reference to the requested resource.
+    ///
+    /// # Panics
+    ///
+    /// This function panics if the resource is not available.
+    #[track_caller]
+    pub fn with_resource_mut<T, R>(&self, f: impl FnOnce(&mut T) -> R) -> R
+    where
+        T: 'static,
+    {
+        self.inner().with_resources_mut(|map| {
+            f(map.get_mut::<T>().unwrap_or_else(|| {
+                panic!(
+                    "Resource of type `{}` is not available",
+                    std::any::type_name::<T>()
+                )
+            }))
+        })
+    }
+
+    /// Calls the provided function with a reference to the requested resource.
+    ///
+    /// If the resource is not available, the function is called with `None`.
+    #[track_caller]
+    pub fn try_with_resource<T, R>(&self, f: impl FnOnce(Option<&T>) -> R) -> R
+    where
+        T: 'static,
+    {
+        self.inner().with_resources(|map| f(map.get::<T>()))
+    }
+
+    /// Calls the provided function with a mutable reference to the requested resource.
+    ///
+    /// If the resource is not available, the function is called with `None`.
+    #[track_caller]
+    pub fn try_with_resource_mut<T, R>(&self, f: impl FnOnce(Option<&mut T>) -> R) -> R
+    where
+        T: 'static,
+    {
+        self.inner().with_resources_mut(|map| f(map.get_mut::<T>()))
+    }
+
+    /// Calls the provided function with a mutable reference to the requested resource.
+    ///
+    /// If the resource is not available, its default value will be inserted into the resource
+    /// map.
+    #[track_caller]
+    pub fn with_resource_or_default<T, R>(&self, f: impl FnOnce(&mut T) -> R) -> R
+    where
+        T: Default + 'static,
+    {
+        self.inner()
+            .with_resources_mut(|map| f(map.get_or_insert_default()))
+    }
 }
 
 impl Debug for Ctx {

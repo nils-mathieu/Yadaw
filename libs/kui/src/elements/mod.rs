@@ -3,6 +3,7 @@ pub use self::types::*;
 
 pub mod anchor;
 pub mod div;
+pub mod text;
 
 /// Creates a new [`Div`] element.
 pub fn div() -> self::div::Div<()> {

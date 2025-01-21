@@ -1,7 +1,6 @@
 use kui::{
     elem,
     elements::{anchor, div},
-    peniko::Color,
     winit::{dpi::PhysicalSize, window::WindowAttributes},
 };
 
@@ -18,8 +17,8 @@ fn main() {
             anchor {
                 align_center,
                 div {
-                    brush: Color::from_rgb8(255, 0, 0),
-                    border_brush: Color::from_rgb8(0, 255, 0),
+                    brush: "#FF0000",
+                    border_brush: "#00FF00",
                     border_thickness: 2px,
                     width: 128px,
                     height: 128px,

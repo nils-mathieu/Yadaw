@@ -4,6 +4,7 @@ use proc_macro::TokenStream;
 
 mod elem;
 mod len;
+mod utility;
 
 /// Creates a [`kui::elements::Length`] from the given value.
 #[proc_macro]

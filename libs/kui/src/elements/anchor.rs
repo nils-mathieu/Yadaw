@@ -46,21 +46,11 @@ pub struct AnchorComputedStyle {
 /// An element that anchors its child to a specific position.
 ///
 /// Anchor elements will attempt
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Anchor<E: ?Sized> {
     pub style: AnchorStyle,
     pub computed_style: AnchorComputedStyle,
     pub child: E,
-}
-
-impl Default for Anchor<()> {
-    fn default() -> Self {
-        Self {
-            style: AnchorStyle::default(),
-            computed_style: AnchorComputedStyle::default(),
-            child: (),
-        }
-    }
 }
 
 impl<E> Anchor<E> {

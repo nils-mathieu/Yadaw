@@ -81,7 +81,7 @@ pub struct DivComputedStyle {
 }
 
 /// Works a bit like an HTML `<div>` element, except it does not provide any layout capabilities.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Div<E: ?Sized> {
     /// The style of the [`Div`] element.
     pub style: DivStyle,
@@ -89,16 +89,6 @@ pub struct Div<E: ?Sized> {
     pub computed_style: DivComputedStyle,
     /// The child element of the [`Div`].
     pub child: E,
-}
-
-impl Default for Div<()> {
-    fn default() -> Self {
-        Self {
-            style: DivStyle::default(),
-            computed_style: DivComputedStyle::default(),
-            child: (),
-        }
-    }
 }
 
 impl<E> Div<E> {

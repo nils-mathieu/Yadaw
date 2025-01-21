@@ -4,7 +4,10 @@
 //! create vector-based UIs with a simple layout system inspired by the classic CSS flexbox model
 //! and a simple event system.
 
+#![feature(downcast_unchecked)]
+
 pub use {
+    parley,
     vello::{
         self, kurbo,
         peniko::{self, color},

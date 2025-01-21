@@ -1,4 +1,7 @@
-use proc_macro::{Delimiter, Group, Ident, Literal, Punct, Spacing, Span, TokenStream, TokenTree};
+use {
+    crate::utility::is_decimal_number_literal,
+    proc_macro::{Delimiter, Group, Ident, Literal, Punct, Spacing, Span, TokenStream, TokenTree},
+};
 
 /// A possible suffix for a length literal.
 #[derive(Debug)]
@@ -97,13 +100,17 @@ impl Length {
     /// Parses the provided literal into a length literal.
     pub fn parse_literal(lit: &Literal) -> Result<Self, ()> {
         let s = lit.to_string();
+        let (number_str, suffix_str) = match is_decimal_number_literal(&s) {
+            Some((number, suffix)) => (number, suffix),
+            None => {
+                lit.span()
+                    .error("Failed to parse the literal as a number")
+                    .emit();
+                return Err(());
+            }
+        };
 
-        let number_len = s
-            .find(|c: char| !c.is_ascii_digit() && c != '.')
-            .unwrap_or(s.len());
-        let (number_str, suffix_str) = s.split_at(number_len);
-        let value_span = lit.subspan(0..number_len).unwrap();
-
+        let value_span = lit.subspan(0..number_str.len()).unwrap();
         let value = parse_f64(number_str, value_span)?;
 
         if suffix_str.is_empty() {
@@ -120,7 +127,7 @@ impl Length {
                 })
             }
         } else {
-            let suffix_span = lit.subspan(number_len..).unwrap();
+            let suffix_span = lit.subspan(number_str.len()..).unwrap();
             let suffix = LengthSuffix::parse(suffix_str, suffix_span)?;
             Ok(Self::Literal { value, suffix })
         }

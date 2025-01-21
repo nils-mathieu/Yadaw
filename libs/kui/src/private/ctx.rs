@@ -7,6 +7,7 @@ use {
     slotmap::SlotMap,
     smallvec::SmallVec,
     std::{
+        any::{Any, TypeId},
         cell::{Cell, RefCell},
         rc::Rc,
         time::Instant,
@@ -16,6 +17,49 @@ use {
         window::{WindowAttributes, WindowId},
     },
 };
+
+/// A map that holds at most one instance of every static type.
+#[derive(Default)]
+pub struct TypeMap(FxHashMap<TypeId, Box<dyn Any>>);
+
+impl TypeMap {
+    /// If a value of type `T` exists in the map, returns it. Otherwise, inserts the provided value
+    /// and returns a mutable reference to it.
+    pub fn get_or_insert_with<T: Any>(&mut self, fallback: impl FnOnce() -> T) -> &mut T {
+        let id = TypeId::of::<T>();
+        let b = self.0.entry(id).or_insert_with(|| Box::new(fallback()));
+        unsafe { b.downcast_mut_unchecked() }
+    }
+
+    /// If a value of type `T` exists in the map, returns it. Otherwise, inserts a default value
+    /// and returns a mutable reference to it.
+    pub fn get_or_insert_default<T>(&mut self) -> &mut T
+    where
+        T: Any + Default,
+    {
+        self.get_or_insert_with(Default::default)
+    }
+
+    /// Attempts to get a vlaue of type `T` from the map.
+    ///
+    /// If the value is not available, returns `None`.
+    pub fn get<T: Any>(&self) -> Option<&T> {
+        let id = TypeId::of::<T>();
+        self.0
+            .get(&id)
+            .map(|b| unsafe { b.downcast_ref_unchecked() })
+    }
+
+    /// Attempts to get a mutable reference to a value of type `T` from the map.
+    ///
+    /// If the value is not available, returns `None`.
+    pub fn get_mut<T: Any>(&mut self) -> Option<&mut T> {
+        let id = TypeId::of::<T>();
+        self.0
+            .get_mut(&id)
+            .map(|b| unsafe { b.downcast_mut_unchecked() })
+    }
+}
 
 /// Information about a callback that is scheduled to be called at a specific time.
 struct Callback {
@@ -65,6 +109,9 @@ pub struct CtxInner {
     callbacks: RefCell<SlotMap<CallbackId, Callback>>,
     /// The time at which the next callback is scheduled to be called.
     next_callback_time: Cell<Option<Instant>>,
+
+    /// Some global resources which may be used by the user.
+    resources: RefCell<TypeMap>,
 }
 
 impl CtxInner {
@@ -296,6 +343,18 @@ impl CtxInner {
             // callback was scheduled while we were running the current ones.
             self.request_callback_at(next);
         }
+    }
+
+    /// Calls the provided function with the resources map.
+    #[track_caller]
+    pub fn with_resources_mut<R>(&self, f: impl FnOnce(&mut TypeMap) -> R) -> R {
+        f(&mut self.resources.borrow_mut())
+    }
+
+    /// Calls the provided function with the resources map.
+    #[track_caller]
+    pub fn with_resources<R>(&self, f: impl FnOnce(&TypeMap) -> R) -> R {
+        f(&self.resources.borrow())
     }
 }
 
