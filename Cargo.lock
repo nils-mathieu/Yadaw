@@ -3,5 +3,12 @@
 version = 4
 
 [[package]]
+name = "kui"
+version = "0.0.0"
+
+[[package]]
 name = "yadaw"
 version = "0.0.0"
+dependencies = [
+ "kui",
+]

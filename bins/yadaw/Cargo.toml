@@ -2,3 +2,6 @@
 name = "yadaw"
 edition = "2024"
 publish = false
+
+[dependencies]
+kui.workspace = true

@@ -1,4 +1,7 @@
 [workspace]
-members = ["bins/*"]
+members = ["bins/*", "libs/*"]
 default-members = ["bins/yadaw"]
 resolver = "2"
+
+[workspace.dependencies]
+kui = { path = "libs/kui" }
