@@ -1,0 +1,4 @@
+[workspace]
+members = ["bins/*"]
+default-members = ["bins/yadaw"]
+resolver = "2"

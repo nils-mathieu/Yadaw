@@ -1,0 +1,4 @@
+[package]
+name = "yadaw"
+edition = "2024"
+publish = false
