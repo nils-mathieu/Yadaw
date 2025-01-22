@@ -2,8 +2,8 @@ use {
     super::Length,
     crate::{ElemContext, Element, LayoutContext, SizeHint},
     parley::{
-        Alignment, FontStack, FontStyle, FontWeight, FontWidth, GenericFamily, Layout,
-        PositionedLayoutItem, StyleProperty,
+        Alignment, FontSettings, FontStack, FontStyle, FontVariation, FontWeight, FontWidth,
+        GenericFamily, Layout, PositionedLayoutItem, StyleProperty,
     },
     vello::{
         Glyph, Scene,
@@ -22,6 +22,13 @@ pub struct TextResource {
     font_ctx: parley::FontContext,
     /// The layout context, allowing re-using allocations between text elements.
     layout_ctx: parley::LayoutContext<Brush>,
+}
+
+impl TextResource {
+    /// Registers the provided font.
+    pub fn register_font(&mut self, font: Vec<u8>) {
+        self.font_ctx.collection.register_fonts(font);
+    }
 }
 
 /// Allows running a function that will be used to style a [`Text`] element.
@@ -52,9 +59,9 @@ pub struct UniformStyle {
     pub brush: Brush,
     pub font_size: Length,
     pub font_stack: FontStack<'static>,
-    pub font_width: FontWidth,
+    pub font_width: f32,
     pub font_style: FontStyle,
-    pub font_weight: FontWeight,
+    pub font_weight: f32,
     pub underline: bool,
     pub underline_offset: Option<Length>,
     pub underline_size: Option<Length>,
@@ -74,9 +81,9 @@ impl Default for UniformStyle {
             brush: Color::BLACK.into(),
             font_size: Length::Pixels(16.0),
             font_stack: GenericFamily::Serif.into(),
-            font_width: FontWidth::NORMAL,
+            font_width: 300.0,
             font_style: FontStyle::Normal,
-            font_weight: FontWeight::NORMAL,
+            font_weight: 300.0,
             underline: false,
             underline_offset: None,
             underline_size: None,
@@ -103,13 +110,21 @@ impl TextStyle for UniformStyle {
     ) {
         let font_size = self.font_size.resolve(layout_context) ;
 
+        let variations = vec![
+            FontVariation {
+                tag: u32::from_be_bytes(*b"wght"),
+                value: self.font_weight,
+            }
+        ];
+
         let mut builder = res.layout_ctx.ranged_builder(&mut res.font_ctx, text, 1.0);
         builder.push_default(StyleProperty::Brush(self.brush.clone()));
         builder.push_default(StyleProperty::FontSize(font_size as f32));
         builder.push_default(StyleProperty::FontStack(self.font_stack.clone()));
-        builder.push_default(StyleProperty::FontWidth(self.font_width));
+        builder.push_default(StyleProperty::FontWidth(FontWidth::from_ratio(self.font_width)));
         builder.push_default(StyleProperty::FontStyle(self.font_style));
-        builder.push_default(StyleProperty::FontWeight(self.font_weight));
+        builder.push_default(StyleProperty::FontWeight(FontWeight::new(self.font_weight)));
+        builder.push_default(StyleProperty::FontVariations(FontSettings::List(variations.into())));
         builder.push_default(StyleProperty::Underline(self.underline));
         builder.push_default(StyleProperty::UnderlineOffset(self.underline_offset.as_ref().map(|l| l.resolve(layout_context) as f32)));
         builder.push_default(StyleProperty::UnderlineSize(self.underline_size.as_ref().map(|l| l.resolve(layout_context) as f32)));
@@ -350,14 +365,14 @@ impl Text<UniformStyle> {
     }
 
     /// Sets the font stack of this [`Text`] element.
-    pub fn font_stack(mut self, stack: FontStack<'static>) -> Self {
-        self.style.font_stack = stack;
+    pub fn font_stack(mut self, stack: impl Into<FontStack<'static>>) -> Self {
+        self.style.font_stack = stack.into();
         self.unstyled.add_dirt(TextDirtAmount::Text);
         self
     }
 
     /// Sets the font width of this [`Text`] element.
-    pub fn font_width(mut self, width: FontWidth) -> Self {
+    pub fn font_width(mut self, width: f32) -> Self {
         self.style.font_width = width;
         self.unstyled.add_dirt(TextDirtAmount::Text);
         self
@@ -371,7 +386,7 @@ impl Text<UniformStyle> {
     }
 
     /// Sets the font weight of this [`Text`] element.
-    pub fn font_weight(mut self, weight: FontWeight) -> Self {
+    pub fn font_weight(mut self, weight: f32) -> Self {
         self.style.font_weight = weight;
         self.unstyled.add_dirt(TextDirtAmount::Text);
         self
