@@ -8,6 +8,7 @@ use {
         Scene,
         kurbo::{Point, Size},
     },
+    winit::window::CursorIcon,
 };
 
 /// Represents a button.
@@ -101,6 +102,16 @@ where
     fn event(&mut self, elem_context: &ElemContext, event: &dyn Event) -> EventResult {
         let og_state = self.state;
         let interaction = self.state.handle_interactions(&mut self.appearance, event);
+        if interaction.entered() {
+            elem_context
+                .window
+                .with_winit_window(|w| w.set_cursor(CursorIcon::Pointer.into()));
+        }
+        if interaction.left() {
+            elem_context
+                .window
+                .with_winit_window(|w| w.set_cursor(CursorIcon::Default.into()));
+        }
         if og_state != self.state {
             self.appearance.state_changed(elem_context, self.state);
         }

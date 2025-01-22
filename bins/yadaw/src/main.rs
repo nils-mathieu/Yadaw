@@ -1,7 +1,6 @@
 use kui::{
     elem,
     elements::text::TextResource,
-    parley::FontStyle,
     peniko::Color,
     winit::{dpi::PhysicalSize, window::WindowAttributes},
 };
@@ -23,6 +22,7 @@ fn main() {
 
                 kui::elements::button {
                     child: make_button();
+                    on_click: move || ctx.exit();
                 }
             }
         });
@@ -45,9 +45,6 @@ fn make_button() -> impl kui::elements::interactive::InputAppearance {
                     inline: true;
                     brush: "#000";
                     font_stack: "Funnel Sans";
-                    font_weight: 800.0;
-                    font_width: 1.2;
-                    font_style: FontStyle::Italic;
                 }
             }
         },
