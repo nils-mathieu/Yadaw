@@ -1,6 +1,6 @@
 use {
     crate::utility::is_decimal_number_literal,
-    proc_macro::{Delimiter, Group, Ident, Literal, Punct, Spacing, Span, TokenStream, TokenTree},
+    proc_macro2::{Delimiter, Group, Ident, Literal, Punct, Spacing, Span, TokenStream, TokenTree},
 };
 
 /// A possible suffix for a length literal.
@@ -34,14 +34,15 @@ impl LengthSuffix {
             "w%" => Ok(Self::ParentWidth),
             "h%" => Ok(Self::ParentHeight),
             "%" => {
-                span.warning(
-                    "`%` unit is an alias for `w%`, it won't automatically handle length direction",
-                )
-                .emit();
+                span
+                    .unwrap()
+                    .warning("`%` unit is an alias for `w%`, it won't automatically handle length direction",)
+                    .emit();
                 Ok(Self::ParentWidth)
             }
             _ => {
-                span.error(format!("Length unit not recognized: `{s}`"))
+                span.unwrap()
+                    .error(format!("Length unit not recognized: `{s}`"))
                     .help("Available units are `upx`, `px`, `w%`, `h%`")
                     .emit();
                 Err(())
@@ -75,7 +76,8 @@ fn parse_f64(s: &str, span: Span) -> Result<f64, ()> {
     match s.parse() {
         Ok(ok) => Ok(ok),
         Err(_) => {
-            span.error(format!("Failed to parse `{s}` into `f64`"))
+            span.unwrap()
+                .error(format!("Failed to parse `{s}` into `f64`"))
                 .emit();
             Err(())
         }
@@ -104,6 +106,7 @@ impl Length {
             Some((number, suffix)) => (number, suffix),
             None => {
                 lit.span()
+                    .unwrap()
                     .error("Failed to parse the literal as a number")
                     .emit();
                 return Err(());
@@ -118,6 +121,7 @@ impl Length {
                 Ok(Self::Zero)
             } else {
                 value_span
+                    .unwrap()
                     .warning("Length literal without a suffix is treated as `px`")
                     .help("Available length units are `upx`, `px`, `w%`, `h%`")
                     .emit();
@@ -141,12 +145,14 @@ impl Length {
             Some(TokenTree::Literal(lit)) => Self::parse_literal(&lit),
             Some(tt) => {
                 tt.span()
+                    .unwrap()
                     .error(format!("Expected a length literal, got `{tt}`"))
                     .emit();
                 Err(())
             }
             None => {
                 Span::call_site()
+                    .unwrap()
                     .error("Expected a length literal")
                     .help("If you wish to use a length of `0px`, simply use `0`")
                     .emit();

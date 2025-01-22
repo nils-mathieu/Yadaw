@@ -7,7 +7,7 @@ use {
 };
 
 /// Contains information about the layout of an element.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct LayoutContext {
     /// The size of the parent element.
     ///
@@ -178,6 +178,9 @@ pub trait Element {
     fn event(&mut self, elem_context: &ElemContext, event: &dyn Event) -> EventResult {
         EventResult::Continue
     }
+
+    /// Called when the element is added to the UI tree.
+    fn begin(&mut self, elem_context: &ElemContext) {}
 
     #[doc(hidden)]
     #[inline]

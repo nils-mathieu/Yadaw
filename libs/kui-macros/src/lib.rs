@@ -9,11 +9,11 @@ mod utility;
 /// Creates a [`kui::elements::Length`] from the given value.
 #[proc_macro]
 pub fn len(tokens: TokenStream) -> TokenStream {
-    self::len::parse_length_literal(tokens)
+    self::len::parse_length_literal(tokens.into()).into()
 }
 
 /// Creates a tree of elements.
 #[proc_macro]
 pub fn elem(tokens: TokenStream) -> TokenStream {
-    self::elem::parse_element_tree(tokens)
+    self::elem::parse_element_tree(tokens.into()).into()
 }

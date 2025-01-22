@@ -142,4 +142,9 @@ impl<E: ?Sized + Element> Element for Anchor<E> {
     fn event(&mut self, elem_context: &ElemContext, event: &dyn Event) -> EventResult {
         self.child.event(elem_context, event)
     }
+
+    #[inline]
+    fn begin(&mut self, elem_context: &ElemContext) {
+        self.child.begin(elem_context);
+    }
 }

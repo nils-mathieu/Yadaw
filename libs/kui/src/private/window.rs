@@ -53,6 +53,14 @@ impl WindowInner {
         }
     }
 
+    /// Creates the [`ElemContext`] for the elements that are part of this window.
+    fn make_elem_context(self: &Rc<Self>) -> ElemContext {
+        ElemContext {
+            ctx: Ctx(Rc::downgrade(&self.ctx)),
+            window: Window(Rc::downgrade(self)),
+        }
+    }
+
     /// Calls the provided function with the root element of the window.
     ///
     /// This function takes care of the case were the root element is replaced while the
@@ -105,10 +113,7 @@ impl WindowInner {
     ///
     /// This function might call user-defined functions!
     pub fn draw_to_scene(self: &Rc<Self>, scene: &mut vello::Scene) {
-        let elem_context = ElemContext {
-            ctx: Ctx(Rc::downgrade(&self.ctx)),
-            window: Window(Rc::downgrade(self)),
-        };
+        let elem_context = self.make_elem_context();
 
         self.with_root_element(|elem| {
             if self.recompute_layout.get() {
@@ -133,10 +138,7 @@ impl WindowInner {
 
     /// Dispatches an event to the window.
     pub fn dispatch_event(self: &Rc<Self>, event: &dyn Event) -> EventResult {
-        let elem_context = ElemContext {
-            ctx: Ctx(Rc::downgrade(&self.ctx)),
-            window: Window(Rc::downgrade(self)),
-        };
+        let elem_context = self.make_elem_context();
         self.with_root_element(|elem| elem.event(&elem_context, event))
     }
 
@@ -185,7 +187,9 @@ impl WindowInner {
 
     /// Sets the root element of the window.
     #[inline]
-    pub fn set_root_element(&self, elem: Box<dyn Element>) {
+    pub fn set_root_element(self: &Rc<Self>, mut elem: Box<dyn Element>) {
+        let elem_ctx = self.make_elem_context();
+        elem.begin(&elem_ctx);
         self.root_element.set(elem);
         self.recompute_layout.set(true);
         self.window_and_surface.winit_window().request_redraw();

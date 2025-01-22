@@ -786,6 +786,10 @@ dependencies = [
 [[package]]
 name = "kui-macros"
 version = "0.0.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+]
 
 [[package]]
 name = "kurbo"

@@ -430,4 +430,11 @@ impl Element for Flex<'_> {
         }
         EventResult::Continue
     }
+
+    #[inline]
+    fn begin(&mut self, elem_context: &ElemContext) {
+        self.children
+            .iter_mut()
+            .for_each(|child| child.child.begin(elem_context));
+    }
 }

@@ -285,6 +285,39 @@ impl<E> Div<E> {
             child,
         }
     }
+
+    /// The left padding of the [`Div`] element.
+    pub fn padding_left(mut self, padding: Length) -> Self {
+        self.style.padding_left = padding;
+        self
+    }
+
+    /// The right padding of the [`Div`] element.
+    pub fn padding_right(mut self, padding: Length) -> Self {
+        self.style.padding_right = padding;
+        self
+    }
+
+    /// The top padding of the [`Div`] element.
+    pub fn padding_top(mut self, padding: Length) -> Self {
+        self.style.padding_top = padding;
+        self
+    }
+
+    /// The bottom padding of the [`Div`] element.
+    pub fn padding_bottom(mut self, padding: Length) -> Self {
+        self.style.padding_bottom = padding;
+        self
+    }
+
+    /// The padding of the [`Div`] element.
+    pub fn padding(mut self, padding: Length) -> Self {
+        self.style.padding_left = padding.clone();
+        self.style.padding_right = padding.clone();
+        self.style.padding_top = padding.clone();
+        self.style.padding_bottom = padding;
+        self
+    }
 }
 
 impl<E: ?Sized + Element> Div<E> {
@@ -445,5 +478,10 @@ impl<E: ?Sized + Element> Element for Div<E> {
     #[inline]
     fn event(&mut self, elem_context: &ElemContext, event: &dyn Event) -> EventResult {
         self.child.event(elem_context, event)
+    }
+
+    #[inline]
+    fn begin(&mut self, elem_context: &ElemContext) {
+        self.child.begin(elem_context);
     }
 }

@@ -7,6 +7,8 @@ pub mod div;
 pub mod flex;
 pub mod text;
 
+pub mod interactive;
+
 /// Creates a new [`Div`] element.
 ///
 /// [`Div`]: self::div::Div

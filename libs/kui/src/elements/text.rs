@@ -179,6 +179,14 @@ impl UnstyledText {
         }
     }
 
+    /// Updates the layout context of the text.
+    fn set_layout_context(&mut self, layout_context: LayoutContext) {
+        if self.layout_context != layout_context {
+            self.layout_context = layout_context;
+            self.add_dirt(TextDirtAmount::Text);
+        }
+    }
+
     /// Makes sure that the layout of the text is properly computed.
     fn flush(&mut self, elem_context: &ElemContext, style: &mut dyn TextStyle) {
         if self.dirt == TextDirtAmount::Clean {
@@ -189,7 +197,6 @@ impl UnstyledText {
             .ctx
             .with_resource_or_default(|text_res: &mut TextResource| {
                 if self.dirt >= TextDirtAmount::Text {
-                    println!("styling...");
                     style.style(&self.layout_context, text_res, &self.text, &mut self.layout);
                 }
 
@@ -219,11 +226,12 @@ impl UnstyledText {
     fn size_hint(
         &mut self,
         elem_context: &ElemContext,
-        _layout_context: LayoutContext,
+        layout_context: LayoutContext,
         space: Size,
         style: &mut dyn TextStyle,
     ) -> SizeHint {
         self.set_container_width(space.width as f32);
+        self.set_layout_context(layout_context);
         self.flush(elem_context, style);
 
         let preferred = if self.inline {
@@ -244,8 +252,8 @@ impl UnstyledText {
     /// Places the element at the provided position and size.
     fn place(&mut self, layout_context: LayoutContext, pos: Point, size: Size) {
         self.position = pos;
-        self.layout_context = layout_context;
         self.set_container_width(size.width as f32);
+        self.set_layout_context(layout_context);
     }
 
     /// Draws the text to the provided scene.
