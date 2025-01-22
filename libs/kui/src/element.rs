@@ -1,5 +1,8 @@
 use {
-    crate::{Ctx, Window},
+    crate::{
+        Ctx, Window,
+        event::{Event, EventResult},
+    },
     vello::kurbo::{Point, Size},
 };
 
@@ -15,7 +18,7 @@ pub struct LayoutContext {
 }
 
 /// Represents the size that an element may be.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug)]
 pub struct SizeHint {
     /// The preferred size of the element.
     ///
@@ -34,6 +37,16 @@ pub struct SizeHint {
     /// This value should be independent of the `space` parameter of the
     /// [`size_hint`] method.
     pub max: Size,
+}
+
+impl Default for SizeHint {
+    fn default() -> Self {
+        Self {
+            preferred: Size::ZERO,
+            min: Size::ZERO,
+            max: Size::new(f64::INFINITY, f64::INFINITY),
+        }
+    }
 }
 
 /// The context passed to the methods of an element.
@@ -69,8 +82,12 @@ pub trait Element {
     ///
     /// # Remarks
     ///
-    /// Calling this function will invalidate any state initialized in the [`place`](Element::place)
+    /// Calling this function will invalidate any state initialized in the [`place`]
     /// function.
+    ///
+    /// [`place`] must be called again in order to reset the element's position and size.
+    ///
+    /// [`place`]: Element::place
     #[inline]
     fn size_hint(
         &mut self,
@@ -85,6 +102,19 @@ pub trait Element {
     ///
     /// This function is usually called after the [`size_hint`](Element::size_hint) function, but
     /// it's not always the case.
+    ///
+    /// # Parameters
+    ///
+    /// - `elem_context`: Contextual information about the current element. This allows interacting
+    ///   with the application context and the window in which the element is located.
+    ///
+    /// - `layout_context`: Contextual information about the layout of the element. This includes
+    ///   the size of the parent element and the scale factor of the element. This is mainly used
+    ///   to resolve relative sizes.
+    ///
+    /// - `pos`: The position of the element.
+    ///
+    /// - `size`: The size of the element.
     #[inline]
     fn place(
         &mut self,
@@ -97,12 +127,16 @@ pub trait Element {
 
     /// Returns whether the provided point is included in the element.
     ///
+    /// # Parameters
+    ///
+    /// - `point`: The point to test.
+    ///
     /// # Requirements
     ///
     /// This function must be called after the element has been laid out and placed through
     /// [`place`](Element::place).
     #[inline]
-    fn hit_test(&self, elem_context: &ElemContext, point: Point) -> bool {
+    fn hit_test(&self, point: Point) -> bool {
         false
     }
 
@@ -112,8 +146,38 @@ pub trait Element {
     ///
     /// This function must be called after the element has been laid out and placed through
     /// [`place`](Element::place).
+    ///
+    /// # Parameters
+    ///
+    /// - `elem_context`: Contextual information about the current element. This allows interacting
+    ///   with the application context and the window in which the element is located.
+    ///
+    /// - `scene`: The scene to draw the element to.
     #[inline]
     fn draw(&mut self, elem_context: &ElemContext, scene: &mut vello::Scene) {}
+
+    /// Handles an event.
+    ///
+    /// # Requirements
+    ///
+    /// This function must be called after the element has been laid out and placed through
+    /// [`place`](Element::place).
+    ///
+    /// # Parameters
+    ///
+    /// - `elem_context`: Contextual information about the current element. This allows interacting
+    ///   with the application context and the window in which the element is located.
+    ///
+    /// - `event`: The event to handle.
+    ///
+    /// # Returns
+    ///
+    /// If the event was handled and should not be propagated further, this function returns
+    /// [`EventResult::Handled`]. Otherwise, it returns [`EventResult::Continue`].
+    #[inline]
+    fn event(&mut self, elem_context: &ElemContext, event: &dyn Event) -> EventResult {
+        EventResult::Continue
+    }
 
     #[doc(hidden)]
     #[inline]

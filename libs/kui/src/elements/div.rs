@@ -1,5 +1,9 @@
 use {
-    crate::{ElemContext, Element, LayoutContext, SizeHint, elements::Length},
+    crate::{
+        ElemContext, Element, LayoutContext, SizeHint,
+        elements::Length,
+        event::{Event, EventResult},
+    },
     smallvec::smallvec,
     vello::{
         kurbo::{
@@ -291,6 +295,14 @@ impl<E: ?Sized + Element> Div<E> {
     }
 }
 
+fn size_min(a: Size, b: Size) -> Size {
+    Size::new(a.width.min(b.width), a.height.min(b.height))
+}
+
+fn size_max(a: Size, b: Size) -> Size {
+    Size::new(a.width.max(b.width), a.height.max(b.height))
+}
+
 impl<E: ?Sized + Element> Element for Div<E> {
     fn size_hint(
         &mut self,
@@ -322,8 +334,8 @@ impl<E: ?Sized + Element> Element for Div<E> {
             preferred: self
                 .style
                 .resolve_size(child_size_hint.preferred + padding, &layout_context),
-            min: min_size,
-            max: max_size,
+            min: size_max(min_size, child_size_hint.min + padding),
+            max: size_min(max_size, child_size_hint.max + padding),
         }
     }
 
@@ -371,8 +383,8 @@ impl<E: ?Sized + Element> Element for Div<E> {
         };
     }
 
-    fn hit_test(&self, elem_context: &ElemContext, point: Point) -> bool {
-        if !self.style.clip_content && self.child.hit_test(elem_context, point) {
+    fn hit_test(&self, point: Point) -> bool {
+        if !self.style.clip_content && self.child.hit_test(point) {
             return true;
         }
 
@@ -428,5 +440,10 @@ impl<E: ?Sized + Element> Element for Div<E> {
         if self.style.clip_content {
             scene.pop_layer();
         }
+    }
+
+    #[inline]
+    fn event(&mut self, elem_context: &ElemContext, event: &dyn Event) -> EventResult {
+        self.child.event(elem_context, event)
     }
 }

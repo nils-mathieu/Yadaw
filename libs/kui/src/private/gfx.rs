@@ -34,7 +34,7 @@ pub struct Renderer {
 
 impl Renderer {
     /// Creates a new [`Renderer`] along with a window.
-    pub fn new_for_window(window: Window) -> (Self, WindowAndSurface) {
+    pub fn new_for_window(window: Box<dyn Window>) -> (Self, WindowAndSurface) {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::all(),
             ..Default::default()
@@ -102,7 +102,7 @@ pub struct WindowAndSurface {
     surface: wgpu::Surface<'static>,
 
     /// The winit window.
-    window: Window,
+    window: Box<dyn Window>,
 
     /// The cached size of the window/surface.
     size: Cell<PhysicalSize<u32>>,
@@ -118,7 +118,7 @@ impl WindowAndSurface {
     /// Creates a new [`WindowAndSurface`] object.
     ///
     /// This function does not check whether the created surface supports a specific format.
-    fn from_instance(instance: &wgpu::Instance, window: Window) -> Self {
+    fn from_instance(instance: &wgpu::Instance, window: Box<dyn Window>) -> Self {
         let surface = unsafe {
             let target = wgpu::SurfaceTargetUnsafe::from_window(&window)
                 .unwrap_or_else(|err| panic!("Failed to create surface: {err}"));
@@ -127,7 +127,7 @@ impl WindowAndSurface {
                 .unwrap_or_else(|err| panic!("Failed to create surface: {err}"))
         };
 
-        let size = window.inner_size();
+        let size = window.surface_size();
 
         Self {
             surface,
@@ -143,7 +143,7 @@ impl WindowAndSurface {
     ///
     /// This function will panic if the created surface does not support the output
     /// format of the renderer.
-    pub fn new(renderer: &Renderer, window: Window) -> Self {
+    pub fn new(renderer: &Renderer, window: Box<dyn Window>) -> Self {
         let surface = Self::from_instance(&renderer.instance, window);
 
         assert!(
@@ -230,7 +230,7 @@ impl WindowAndSurface {
 
     /// Returns a reference to the winit window.
     #[inline]
-    pub fn winit_window(&self) -> &Window {
-        &self.window
+    pub fn winit_window(&self) -> &dyn Window {
+        self.window.as_ref()
     }
 }

@@ -2,14 +2,19 @@ use {
     crate::{
         Ctx, ElemContext, LayoutContext, Window,
         element::Element,
+        event::{Event, EventResult},
         private::{CtxInner, Renderer, WindowAndSurface},
     },
+    core::f64,
     std::{cell::Cell, rc::Rc},
     vello::{
         kurbo::{self, Point},
         peniko, wgpu,
     },
-    winit::{dpi::PhysicalSize, window::Window as WinitWindow},
+    winit::{
+        dpi::{PhysicalPosition, PhysicalSize},
+        window::Window as WinitWindow,
+    },
 };
 
 /// The inner state associated with a window.
@@ -29,6 +34,8 @@ pub struct WindowInner {
 
     /// The scale factor of the window.
     scale_factor: Cell<f64>,
+    /// The last reported position of the pointer.
+    last_pointer_position: Cell<PhysicalPosition<f64>>,
 }
 
 impl WindowInner {
@@ -42,15 +49,15 @@ impl WindowInner {
             recompute_layout: Cell::new(true),
             root_element: Cell::new(Box::new(())),
             scale_factor: Cell::new(scale_factor),
+            last_pointer_position: Cell::new(PhysicalPosition::new(f64::INFINITY, f64::INFINITY)),
         }
     }
 
-    /// Draws the content of the window to the provided scene.
+    /// Calls the provided function with the root element of the window.
     ///
-    /// # Remarks
-    ///
-    /// This function might call user-defined functions!
-    pub fn draw_to_scene(self: &Rc<Self>, scene: &mut vello::Scene) {
+    /// This function takes care of the case were the root element is replaced while the
+    /// closure is running.
+    fn with_root_element<R>(&self, f: impl FnOnce(&mut dyn Element) -> R) -> R {
         // This custom element is used as a sentinel to check whether the root element of the
         // window has changed during the draw callback.
         struct PrivateElement;
@@ -61,36 +68,76 @@ impl WindowInner {
             }
         }
 
-        let mut root_element = self.root_element.replace(Box::new(PrivateElement));
+        /// The guard responisble for restoring the root element.
+        struct Guard<'a> {
+            slot: &'a Cell<Box<dyn Element>>,
+            root_element: Box<dyn Element>,
+        }
+
+        impl Drop for Guard<'_> {
+            fn drop(&mut self) {
+                self.slot.swap(Cell::from_mut(&mut self.root_element));
+
+                if !self
+                    .root_element
+                    .__private_implementation_detail_do_not_use()
+                {
+                    // The root element has been modified during one of the callbacks.
+                    // Let's restore the requested new root element and destroy the temporary one.
+                    self.slot.swap(Cell::from_mut(&mut self.root_element));
+                }
+            }
+        }
+
+        let root_element = self.root_element.replace(Box::new(PrivateElement));
+
+        let mut guard = Guard {
+            slot: &self.root_element,
+            root_element,
+        };
+
+        f(guard.root_element.as_mut())
+    }
+
+    /// Draws the content of the window to the provided scene.
+    ///
+    /// # Remarks
+    ///
+    /// This function might call user-defined functions!
+    pub fn draw_to_scene(self: &Rc<Self>, scene: &mut vello::Scene) {
         let elem_context = ElemContext {
             ctx: Ctx(Rc::downgrade(&self.ctx)),
             window: Window(Rc::downgrade(self)),
         };
 
-        if self.recompute_layout.get() {
-            let size = self.window_and_surface.cached_size();
-            let size = kurbo::Size::new(size.width as f64, size.height as f64);
-            root_element.place(
-                &elem_context,
-                LayoutContext {
-                    parent: size,
-                    scale_factor: self.scale_factor.get(),
-                },
-                Point::ORIGIN,
-                size,
-            );
-            self.recompute_layout.set(false);
-        }
+        self.with_root_element(|elem| {
+            if self.recompute_layout.get() {
+                let size = self.window_and_surface.cached_size();
+                let size = kurbo::Size::new(size.width as f64, size.height as f64);
+                elem.place(
+                    &elem_context,
+                    LayoutContext {
+                        parent: size,
+                        scale_factor: self.scale_factor.get(),
+                    },
+                    Point::ORIGIN,
+                    size,
+                );
+                self.recompute_layout.set(false);
+            }
 
-        scene.reset();
-        root_element.draw(&elem_context, scene);
+            scene.reset();
+            elem.draw(&elem_context, scene);
+        });
+    }
 
-        let potentially_replaced = self.root_element.replace(root_element);
-        if !potentially_replaced.__private_implementation_detail_do_not_use() {
-            // The root element has been modified during one of the callbacks.
-            // Let's restore the requested new root element and destroy the temporary one.
-            self.root_element.set(potentially_replaced);
-        }
+    /// Dispatches an event to the window.
+    pub fn dispatch_event(self: &Rc<Self>, event: &dyn Event) -> EventResult {
+        let elem_context = ElemContext {
+            ctx: Ctx(Rc::downgrade(&self.ctx)),
+            window: Window(Rc::downgrade(self)),
+        };
+        self.with_root_element(|elem| elem.event(&elem_context, event))
     }
 
     /// Renders the provided scene to this window.
@@ -120,7 +167,7 @@ impl WindowInner {
 
     /// Returns a reference to the concrete winit [`Window`](WinitWindow) object.
     #[inline]
-    pub fn winit_window(&self) -> &WinitWindow {
+    pub fn winit_window(&self) -> &dyn WinitWindow {
         self.window_and_surface.winit_window()
     }
 
@@ -142,5 +189,30 @@ impl WindowInner {
         self.root_element.set(elem);
         self.recompute_layout.set(true);
         self.window_and_surface.winit_window().request_redraw();
+    }
+
+    /// Returns the window's scale factor.
+    #[inline]
+    pub fn scale_factor(&self) -> f64 {
+        self.scale_factor.get()
+    }
+
+    /// Sets the last pointer position for the window.
+    #[inline]
+    pub fn set_last_pointer_position(&self, position: PhysicalPosition<f64>) {
+        self.last_pointer_position.set(position);
+    }
+
+    /// Returns the last reported position of the pointer over the window's
+    /// surface area.
+    #[inline]
+    pub fn last_pointer_position(&self) -> PhysicalPosition<f64> {
+        self.last_pointer_position.get()
+    }
+
+    /// Returns the window's size.
+    #[inline]
+    pub fn cached_size(&self) -> PhysicalSize<u32> {
+        self.window_and_surface.cached_size()
     }
 }

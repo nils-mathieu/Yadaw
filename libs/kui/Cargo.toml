@@ -6,10 +6,11 @@ publish = false
 [dependencies]
 kui-macros = { path = "../kui-macros" }
 
-winit = "0.30"
+winit = { git = "https://github.com/rust-windowing/winit.git" } # Better support for touchscreen pointers
 rustc-hash = "2"
 slotmap = "1"
 smallvec = "1"
 vello = "0.4"
 pollster = "0.4"
-parley = { git = "https://github.com/linebender/parley.git" } # parley on crates.io stills depends on peniko 0.2
+parley = { git = "https://github.com/linebender/parley.git" }   # parley on crates.io stills depends on peniko 0.2
+bitflags = "2"

@@ -1,6 +1,9 @@
 use {
     super::Length,
-    crate::{ElemContext, Element, LayoutContext, SizeHint},
+    crate::{
+        ElemContext, Element, LayoutContext, SizeHint,
+        event::{Event, EventResult},
+    },
     core::f64,
     vello::{
         Scene,
@@ -407,15 +410,24 @@ impl Element for Flex<'_> {
         }
     }
 
-    fn hit_test(&self, elem_context: &ElemContext, point: Point) -> bool {
+    fn hit_test(&self, point: Point) -> bool {
         self.children
             .iter()
-            .any(|child| child.child.hit_test(elem_context, point))
+            .any(|child| child.child.hit_test(point))
     }
 
     fn draw(&mut self, elem_context: &ElemContext, scene: &mut Scene) {
         self.children
             .iter_mut()
             .for_each(|child| child.child.draw(elem_context, scene))
+    }
+
+    fn event(&mut self, elem_context: &ElemContext, event: &dyn Event) -> EventResult {
+        for child in &mut self.children {
+            if child.child.event(elem_context, event).is_handled() {
+                return EventResult::Handled;
+            }
+        }
+        EventResult::Continue
     }
 }

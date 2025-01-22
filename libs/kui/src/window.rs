@@ -4,7 +4,10 @@ use {
         fmt::Debug,
         rc::{Rc, Weak},
     },
-    vello::{peniko, wgpu},
+    vello::{
+        kurbo::{Point, Size},
+        peniko, wgpu,
+    },
 };
 
 /// A window that is managed by the application.
@@ -47,7 +50,7 @@ impl Window {
     /// Calls the provided function with a reference to the concrete winit [`Window`] object
     /// backing this window.
     #[track_caller]
-    pub fn with_winit_window<R>(&self, f: impl FnOnce(&winit::window::Window) -> R) -> R {
+    pub fn with_winit_window<R>(&self, f: impl FnOnce(&dyn winit::window::Window) -> R) -> R {
         f(self.inner().winit_window())
     }
 
@@ -83,6 +86,26 @@ impl Window {
     #[track_caller]
     pub fn set_root_element(&self, elem: impl 'static + Element) {
         self.set_root_element_boxed(Box::new(elem));
+    }
+
+    /// Returns the scale factor of the window.
+    #[track_caller]
+    pub fn scale_factor(&self) -> f64 {
+        self.inner().scale_factor()
+    }
+
+    /// Returns the size of the window.
+    #[track_caller]
+    pub fn size(&self) -> Size {
+        let cached_size = self.inner().cached_size();
+        Size::new(cached_size.width as f64, cached_size.height as f64)
+    }
+
+    /// Returns the last known position of the pointer over the window's client area.
+    #[track_caller]
+    pub fn pointer_position(&self) -> Point {
+        let pos = self.inner().last_pointer_position();
+        Point::new(pos.x, pos.y)
     }
 }
 

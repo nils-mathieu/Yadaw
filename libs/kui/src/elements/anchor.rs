@@ -1,6 +1,9 @@
 use {
     super::Length,
-    crate::{ElemContext, Element, LayoutContext, SizeHint},
+    crate::{
+        ElemContext, Element, LayoutContext, SizeHint,
+        event::{Event, EventResult},
+    },
     core::f64,
     vello::kurbo::{Point, Size, Vec2},
 };
@@ -126,12 +129,17 @@ impl<E: ?Sized + Element> Element for Anchor<E> {
     }
 
     #[inline]
-    fn hit_test(&self, elem_context: &ElemContext, point: Point) -> bool {
-        self.child.hit_test(elem_context, point)
+    fn hit_test(&self, point: Point) -> bool {
+        self.child.hit_test(point)
     }
 
     #[inline]
     fn draw(&mut self, elem_context: &ElemContext, scene: &mut vello::Scene) {
         self.child.draw(elem_context, scene);
+    }
+
+    #[inline]
+    fn event(&mut self, elem_context: &ElemContext, event: &dyn Event) -> EventResult {
+        self.child.event(elem_context, event)
     }
 }

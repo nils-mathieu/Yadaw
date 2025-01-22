@@ -6,7 +6,7 @@ use {
         rc::{Rc, Weak},
         time::{Duration, Instant},
     },
-    winit::{event_loop::ActiveEventLoop, window::WindowAttributes},
+    winit::window::WindowAttributes,
 };
 
 new_key_type! {
@@ -46,7 +46,7 @@ impl Ctx {
     /// Stops the event loop and exits the application.
     #[track_caller]
     pub fn exit(&self) {
-        self.inner().with_active_event_loop(ActiveEventLoop::exit);
+        self.inner().with_active_event_loop(|el| el.exit());
     }
 
     /// Creates a new window with the provided attributes.

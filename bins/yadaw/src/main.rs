@@ -1,6 +1,11 @@
 use kui::{
     elem,
-    elements::{div, flex},
+    elements::{
+        button,
+        button::{ButtonAppearanceFn, ButtonState},
+        div, flex,
+    },
+    peniko::Color,
     winit::{dpi::PhysicalSize, window::WindowAttributes},
 };
 
@@ -10,7 +15,7 @@ fn main() {
         let wnd = ctx.create_window(
             WindowAttributes::default()
                 .with_title("Yadaw")
-                .with_inner_size(PhysicalSize::new(1280, 720)),
+                .with_surface_size(PhysicalSize::new(1280, 720)),
         );
 
         wnd.set_root_element(elem! {
@@ -27,13 +32,31 @@ fn main() {
                     radius: 8px,
                 }
 
-
-                div {
-                    width: 100px,
-                    height: 100px,
-                    brush: "#0f0",
-                    radius: 8px,
+                button {
+                    on_click: || println!("Button clicked!"),
+                    child: ButtonAppearanceFn::new(
+                        |el,  cx, state| {
+                            el.style.brush =
+                                if state.contains(ButtonState::ACTIVE) {
+                                    Some(Color::from_rgb8(0, 0, 255).into())
+                                } else if state.contains(ButtonState::HOVER) {
+                                    Some(Color::from_rgb8(255, 0, 0).into())
+                                } else {
+                                    Some(Color::from_rgb8(0, 255, 0).into())
+                                };
+                            cx.window.request_redraw();
+                        },
+                        elem! {
+                            div {
+                                width: 100px,
+                                height: 100px,
+                                brush: "#0f0",
+                                radius: 8px,
+                            }
+                        }
+                    ),
                 }
+
 
                 div {
                     width: 100px,

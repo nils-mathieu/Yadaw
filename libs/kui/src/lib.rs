@@ -20,6 +20,8 @@ pub use kui_macros::*;
 
 mod private;
 
+pub mod elements;
+pub mod event;
 pub mod event_loop;
 
 mod ctx;
@@ -30,8 +32,6 @@ pub use self::window::*;
 
 mod element;
 pub use self::element::*;
-
-pub mod elements;
 
 /// Runs the Kui application.
 ///

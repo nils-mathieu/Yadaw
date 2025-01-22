@@ -9,6 +9,7 @@ use {
     std::{
         any::{Any, TypeId},
         cell::{Cell, RefCell},
+        ptr::NonNull,
         rc::Rc,
         time::Instant,
     },
@@ -100,7 +101,7 @@ pub struct CtxInner {
     /// If the inner option is `Some(_)`, it means that the `ActiveEventLoop` object is available
     /// and the reference will remain valid as long as the inner option remains a `Some(_)` with
     /// the same reference.
-    active_event_loop: Cell<Option<&'static ActiveEventLoop>>,
+    active_event_loop: Cell<Option<NonNull<dyn ActiveEventLoop>>>,
 
     /// The renderer and the windows.
     renderer_and_windows: RefCell<RendererAndWindows>,
@@ -126,12 +127,12 @@ impl CtxInner {
     ///
     /// When the function returns (or panics), the internal `active_event_loop` field is reset to
     /// `None` to ensure it is not used past its lifetime.
-    pub fn set_active_event_loop<R>(&self, ael: &ActiveEventLoop, f: impl FnOnce() -> R) -> R {
+    pub fn set_active_event_loop<R>(&self, ael: &dyn ActiveEventLoop, f: impl FnOnce() -> R) -> R {
         // Calling this function re-entrantly is not a safety concern, but it's probably
         // an error on our part.
         debug_assert!(self.active_event_loop.get().is_none());
 
-        struct Guard<'a>(&'a Cell<Option<&'static ActiveEventLoop>>);
+        struct Guard<'a>(&'a Cell<Option<NonNull<dyn ActiveEventLoop>>>);
 
         impl Drop for Guard<'_> {
             #[inline]
@@ -140,11 +141,10 @@ impl CtxInner {
             }
         }
 
-        // SAFETY: This is safe because the guard above will make sure the reference is retired
-        // from the field before the function returns.
-        let ael = unsafe { extend_lifetime(ael) };
+        let p: *const dyn ActiveEventLoop = ael;
 
-        self.active_event_loop.set(Some(ael));
+        self.active_event_loop
+            .set(Some(unsafe { NonNull::new_unchecked(p as *mut _) }));
         let _guard = Guard(&self.active_event_loop);
         f()
     }
@@ -154,7 +154,7 @@ impl CtxInner {
     /// # Panics
     ///
     /// This function panics if the internal `active_event_loop` field is not set.
-    pub fn with_active_event_loop<R>(&self, f: impl FnOnce(&ActiveEventLoop) -> R) -> R {
+    pub fn with_active_event_loop<R>(&self, f: impl FnOnce(&dyn ActiveEventLoop) -> R) -> R {
         // SAFETY: The function will not be able to leak the reference because the lifetime we
         // provide is only valid during its execution.
         let ael = self
@@ -162,7 +162,9 @@ impl CtxInner {
             .get()
             .expect("No active event loop available");
 
-        f(ael)
+        // SAFETY: If the pointer is present, then it must be valid. This is an invariant of the
+        // type.
+        f(unsafe { ael.as_ref() })
     }
 
     //
@@ -238,7 +240,7 @@ impl CtxInner {
     ///
     /// This function panics if the window with the provided ID does not exist.
     #[track_caller]
-    pub fn with_window<R>(&self, id: WindowId, f: impl FnOnce(&WindowInner) -> R) -> R {
+    pub fn with_window<R>(&self, id: WindowId, f: impl FnOnce(&Rc<WindowInner>) -> R) -> R {
         f(self
             .renderer_and_windows
             .borrow()
@@ -356,16 +358,4 @@ impl CtxInner {
     pub fn with_resources<R>(&self, f: impl FnOnce(&TypeMap) -> R) -> R {
         f(&self.resources.borrow())
     }
-}
-
-/// Extends the lifetime of the provided reference to an arbitrary (and potentially longer)
-/// lifetime.
-///
-/// # Safety
-///
-/// The caller must responsible for ensuring the lifetime of the returned reference is not used
-/// past the lifetime of the original reference.
-#[inline(always)]
-unsafe fn extend_lifetime<'unconstrained, T>(a: &T) -> &'unconstrained T {
-    unsafe { std::mem::transmute(a) }
 }
