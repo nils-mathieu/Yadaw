@@ -76,6 +76,13 @@ impl Window {
         self.inner().winit_window().request_redraw();
     }
 
+    /// Requests the UI tree associated with the window to be re-built (and the window to be
+    /// re-rendered).
+    #[track_caller]
+    pub fn request_relayout(&self) {
+        self.inner().request_relayout();
+    }
+
     /// Sets the root element of the window as a boxed value.
     #[track_caller]
     pub fn set_root_element_boxed(&self, elem: Box<dyn Element>) {

@@ -191,6 +191,12 @@ impl WindowInner {
         self.window_and_surface.winit_window().request_redraw();
     }
 
+    /// Requests a re-layout of the UI tree.
+    pub fn request_relayout(&self) {
+        self.recompute_layout.set(true);
+        self.window_and_surface.winit_window().request_redraw();
+    }
+
     /// Returns the window's scale factor.
     #[inline]
     pub fn scale_factor(&self) -> f64 {
