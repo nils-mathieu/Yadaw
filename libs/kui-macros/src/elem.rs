@@ -375,10 +375,7 @@ impl Element {
                     .emit();
                 Ident::new("dummy_identifier", tt.span())
             }
-            None => {
-                Span::call_site().error("Expected an identifier").emit();
-                Ident::new("dummy_identifier", Span::call_site())
-            }
+            None => unreachable!(),
         };
 
         let group = match tokens.next() {
@@ -431,5 +428,9 @@ impl Element {
 
 /// Parses an element tree.
 pub fn parse_element_tree(tokens: TokenStream) -> TokenStream {
+    if tokens.is_empty() {
+        return "()".parse().unwrap();
+    }
+
     Element::parse(tokens).to_tokens()
 }
