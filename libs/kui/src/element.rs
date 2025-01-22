@@ -3,229 +3,41 @@ use {
     vello::kurbo::{Point, Size},
 };
 
-/// Represents the constrains of a size.
-#[derive(Clone, Copy)]
-pub struct SizeConstraint {
-    width: f64,
-    height: f64,
-}
-
-impl SizeConstraint {
-    /// Creates a new [`SizeConstraint`] from the provided width and height.
-    ///
-    /// If either components are negative, it means that that component is not constrained.
-    pub const fn from_raw(width: f64, height: f64) -> Self {
-        Self { width, height }
-    }
-
-    /// Creates a new [`SizeConstraint`] from the provided width and height.
-    pub const fn new(width: Option<f64>, height: Option<f64>) -> Self {
-        debug_assert!(width.is_none() || width.unwrap().is_sign_positive());
-        debug_assert!(height.is_none() || height.unwrap().is_sign_positive());
-        Self {
-            width: match width {
-                Some(width) => width,
-                None => -1.0,
-            },
-            height: match height {
-                Some(height) => height,
-                None => -1.0,
-            },
-        }
-    }
-
-    /// Returns a new [`SizeConstraint`] from the provided size.
-    pub const fn from_size(size: Size) -> Self {
-        debug_assert!(size.width.is_sign_positive());
-        debug_assert!(size.height.is_sign_positive());
-        Self {
-            width: size.width,
-            height: size.height,
-        }
-    }
-
-    /// Creates a new [`SizeConstraint`] from the provided width and height.
-    pub const fn from_constraints(width: f64, height: f64) -> Self {
-        debug_assert!(width.is_sign_positive());
-        debug_assert!(height.is_sign_positive());
-        Self { width, height }
-    }
-
-    /// Creates a new unconstrained [`SizeConstraint`].
-    pub const fn unconstrained() -> Self {
-        Self {
-            width: -1.0,
-            height: -1.0,
-        }
-    }
-
-    /// Creates a new [`SizeConstraint`] with the provided width and an unconstrained height.
-    pub const fn from_width(width: f64) -> Self {
-        debug_assert!(width.is_sign_positive());
-        Self {
-            width,
-            height: -1.0,
-        }
-    }
-
-    /// Creates a new [`SizeConstraint`] with the provided height and an unconstrained width.
-    pub const fn from_height(height: f64) -> Self {
-        debug_assert!(height.is_sign_positive());
-        Self {
-            width: -1.0,
-            height,
-        }
-    }
-
-    /// Returns the maximum width available.
-    ///
-    /// If no width constraint is provided (the element is free to use any width), this function
-    /// returns `None`.
-    pub const fn width(&self) -> Option<f64> {
-        if self.has_width_constraint() {
-            Some(self.width)
-        } else {
-            None
-        }
-    }
-
-    /// Returns whether the element has a width constraint.
-    pub const fn has_width_constraint(&self) -> bool {
-        self.width.is_sign_positive()
-    }
-
-    /// Returns the maximum height available.
-    ///
-    /// If no height constraint is provided (the element is free to use any height), this function
-    /// returns `None`.
-    pub const fn height(&self) -> Option<f64> {
-        if self.has_height_constraint() {
-            Some(self.height)
-        } else {
-            None
-        }
-    }
-
-    /// Returns whether the element has a height constraint.
-    pub const fn has_height_constraint(&self) -> bool {
-        self.height.is_sign_positive()
-    }
-
-    /// Returns a [`SizeConstraint`] with the provided additional width constraint.
-    pub const fn with_width(mut self, width: f64) -> Self {
-        self.width = width;
-        self
-    }
-
-    /// Returns a [`SizeConstraint`] with the provided additional height constraint.
-    pub const fn with_height(mut self, height: f64) -> Self {
-        self.height = height;
-        self
-    }
-
-    /// Returns a [`SizeConstraint`] with the provided additional width constraint. Unconstrained
-    /// sides are set to zero.
-    pub fn size_or_zero(&self) -> Size {
-        Size::new(self.width.max(0.0), self.height.max(0.0))
-    }
-}
-
-impl std::fmt::Debug for SizeConstraint {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SizeConstraint")
-            .field(
-                "width",
-                if self.has_height_constraint() {
-                    &self.width
-                } else {
-                    &"unconstrained"
-                },
-            )
-            .field(
-                "height",
-                if self.has_height_constraint() {
-                    &self.height
-                } else {
-                    &"unconstrained"
-                },
-            )
-            .finish()
-    }
-}
-
-impl Default for SizeConstraint {
-    #[inline]
-    fn default() -> Self {
-        Self::unconstrained()
-    }
-}
-
-/// The amount of space availble for an element.
-#[derive(Clone, Debug, Default)]
-pub struct LayoutInfo {
+/// Contains information about the layout of an element.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct LayoutContext {
     /// The size of the parent element.
-    pub parent: Size,
-
-    /// The available size for the element.
     ///
-    /// The element is free to use all of this space, or only part of it.
-    pub available: SizeConstraint,
-
+    /// Used to compute some layout metrics.
+    pub parent: Size,
     /// The scale factor of the element.
     pub scale_factor: f64,
 }
 
-/// The computed metrics of a element.
-#[derive(Debug, Default, Clone)]
-pub struct ElementMetrics {
-    /// The position of the element.
-    pub position: Point,
-    /// The size of the element.
-    pub size: Size,
-}
-
-/// The result of navigating the focus out of an element.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum FocusResult {
-    /// The keyboard focus was moved out of the element's subtree.
-    Exit,
-    /// The keyboard focus was moved to the next element in the subtree.
-    Continue,
-    /// The keyboard focus is not handled by this element.
-    Ignored,
-}
-
-/// A direction the keyboard focus can be moved in.
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum FocusDirection {
-    /// Move the focus forward.
+/// Represents the size that an element may be.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct SizeHint {
+    /// The preferred size of the element.
     ///
-    /// Usually controlled by the <kbd>Tab</kbd> key.
-    #[default]
-    Forward,
-    /// Move the focus backward.
+    /// This "preferred" size should be relative to the `space` parameter of the
+    /// [`size_hint`] method.
     ///
-    /// Usually controlled by the <kbd>Shift</kbd> + <kbd>Tab</kbd> keys.
-    Backward,
-    /// Move the focus up.
+    /// [`size_hint`]: Element::size_hint
+    pub preferred: Size,
+    /// The minimum size of the element.
     ///
-    /// Usually controlled by the <kbd>Up</kbd> key.
-    Up,
-    /// Move the focus down.
+    /// This value should be independent of the `space` parameter of the
+    /// [`size_hint`] method.
+    pub min: Size,
+    /// The maximum size of the element.
     ///
-    /// Usually controlled by the <kbd>Down</kbd> key.
-    Down,
-    /// Move the focus left.
-    ///
-    /// Usually controlled by the <kbd>Left</kbd> key.
-    Left,
-    /// Move the focus right.
-    ///
-    /// Usually controlled by the <kbd>Right</kbd> key.
-    Right,
+    /// This value should be independent of the `space` parameter of the
+    /// [`size_hint`] method.
+    pub max: Size,
 }
 
 /// The context passed to the methods of an element.
+#[derive(Debug)]
 pub struct ElemContext {
     /// The application context.
     pub ctx: Ctx,
@@ -239,51 +51,56 @@ pub struct ElemContext {
 /// events from the user.
 #[allow(unused_variables)]
 pub trait Element {
-    /// Lays the element out, given the provided context.
+    /// Computes a hint of the element's preferred size metrics for a given layout context and
+    /// constraints.
     ///
-    /// # Consequences
+    /// # Parameters
     ///
-    /// Calling this function may reset the element's position.
+    /// - `elem_context`: Contextual information about the current element. This allows interacting
+    ///   with the application context and the window in which the element is located.
+    ///
+    /// - `layout_context`: Contextual information about the layout of the element. This includes
+    ///   the size of the parent element and the scale factor of the element. This is mainly used
+    ///   to resolve relative sizes.
+    ///
+    /// - `space`: The available space for the element. It's possible for the size to report an
+    ///   infinite size if there is no constraint on the element size. It's also possible to report
+    ///   a null size if the element should attempt to take the least amount of space possible.
+    ///
+    /// # Remarks
+    ///
+    /// Calling this function will invalidate any state initialized in the [`place`](Element::place)
+    /// function.
     #[inline]
-    fn layout(&mut self, elem_context: &ElemContext, info: LayoutInfo) {}
-
-    /// Places the element at the provided position.
-    ///
-    /// # Requirements
-    ///
-    /// This function should generally be called after the element has been properly laid
-    /// out through the [`layout`](Element::layout) function.
-    #[inline]
-    fn place(&mut self, elem_context: &ElemContext, pos: Point) {}
-
-    /// Returns the metrics of the element.
-    ///
-    /// # Requirements
-    ///
-    /// This function only returns valid values when the element has been laid out by calling
-    /// [`layout`](Element::layout).
-    ///
-    /// Additionally, the `position` field of the returned metrics will not be valid until the
-    /// [`place`] function has been called. It should always return the same value as whatever
-    /// [`place`] would have set it to.
-    ///
-    /// [`place`]: Element::place
-    #[inline]
-    fn metrics(&self) -> ElementMetrics {
-        ElementMetrics::default()
+    fn size_hint(
+        &mut self,
+        elem_context: &ElemContext,
+        layout_context: LayoutContext,
+        space: Size,
+    ) -> SizeHint {
+        SizeHint::default()
     }
 
-    /// Moves the focus to the next element in the focus order.
+    /// Places the element at the provided position and size.
+    ///
+    /// This function is usually called after the [`size_hint`](Element::size_hint) function, but
+    /// it's not always the case.
     #[inline]
-    fn move_focus(&mut self, elem_context: &ElemContext, dir: FocusDirection) -> FocusResult {
-        FocusResult::Ignored
+    fn place(
+        &mut self,
+        elem_context: &ElemContext,
+        layout_context: LayoutContext,
+        pos: Point,
+        size: Size,
+    ) {
     }
 
     /// Returns whether the provided point is included in the element.
     ///
     /// # Requirements
     ///
-    /// This function must be called after the element has been laid out and placed.
+    /// This function must be called after the element has been laid out and placed through
+    /// [`place`](Element::place).
     #[inline]
     fn hit_test(&self, elem_context: &ElemContext, point: Point) -> bool {
         false
@@ -293,7 +110,8 @@ pub trait Element {
     ///
     /// # Requirements
     ///
-    /// This function must be called after the element has been laid out and placed.
+    /// This function must be called after the element has been laid out and placed through
+    /// [`place`](Element::place).
     #[inline]
     fn draw(&mut self, elem_context: &ElemContext, scene: &mut vello::Scene) {}
 

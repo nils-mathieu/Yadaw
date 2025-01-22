@@ -200,6 +200,9 @@ impl FieldValueKind {
             Some(TokenTree::Literal(lit)) => {
                 let lit = lit.to_string();
                 if let Some((_, suffix)) = is_decimal_number_literal(&lit) {
+                    if suffix.is_empty() {
+                        return Self::Unknown;
+                    }
                     if STANDARD_SUFFIXES.contains(&suffix) {
                         return Self::Unknown;
                     }

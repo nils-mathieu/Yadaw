@@ -1,9 +1,7 @@
 use {
     super::Length,
-    crate::{
-        ElemContext, Element, ElementMetrics, FocusDirection, FocusResult, LayoutInfo,
-        SizeConstraint,
-    },
+    crate::{ElemContext, Element, LayoutContext, SizeHint},
+    core::f64,
     vello::kurbo::{Point, Size, Vec2},
 };
 
@@ -16,9 +14,6 @@ pub struct AnchorStyle {
     pub anchor_y: f64,
     pub offset_x: Length,
     pub offset_y: Length,
-    pub fill_width: bool,
-    pub fill_height: bool,
-    pub fit_child: bool,
 }
 
 impl Default for AnchorStyle {
@@ -28,22 +23,8 @@ impl Default for AnchorStyle {
             anchor_y: 0.0,
             offset_x: Length::ZERO,
             offset_y: Length::ZERO,
-            fill_width: true,
-            fill_height: true,
-            fit_child: true,
         }
     }
-}
-
-/// The computed style of an [`Anchor`] element.
-#[derive(Clone, Debug, Default)]
-pub struct AnchorComputedStyle {
-    /// The position of the element.
-    pub position: Point,
-    /// The size of the element.
-    pub size: Size,
-    /// The computed offset of the child element, relative to its parent.
-    pub child_offset: Vec2,
 }
 
 /// An element that anchors its child to a specific position.
@@ -52,7 +33,6 @@ pub struct AnchorComputedStyle {
 #[derive(Clone, Debug, Default)]
 pub struct Anchor<E: ?Sized> {
     pub style: AnchorStyle,
-    pub computed_style: AnchorComputedStyle,
     pub child: E,
 }
 
@@ -71,29 +51,10 @@ impl<E> Anchor<E> {
         self
     }
 
-    /// Sets whether this [`Anchor`] element should fill the width of its parent.
-    pub fn fill_width(mut self, fill: bool) -> Self {
-        self.style.fill_width = fill;
-        self
-    }
-
-    /// Sets whether this [`Anchor`] element should fill the height of its parent.
-    pub fn fill_height(mut self, fill: bool) -> Self {
-        self.style.fill_height = fill;
-        self
-    }
-
-    /// Sets whether this [`Anchor`] element should fit its child element.
-    pub fn fit_child(mut self, fit: bool) -> Self {
-        self.style.fit_child = fit;
-        self
-    }
-
     /// Sets the child element of this [`Anchor`].
     pub fn child<E2>(self, child: E2) -> Anchor<E2> {
         Anchor {
             style: self.style,
-            computed_style: AnchorComputedStyle::default(),
             child,
         }
     }
@@ -109,81 +70,64 @@ impl<E> Anchor<E> {
 }
 
 impl<E: ?Sized + Element> Element for Anchor<E> {
-    fn layout(&mut self, elem_context: &ElemContext, info: LayoutInfo) {
-        let mut my_width = if self.style.fill_width {
-            info.available.width().expect("Can't use a space-filling `Anchor` element when no max-width constraint is available")
-        } else {
-            0.0
-        };
+    fn size_hint(
+        &mut self,
+        elem_context: &ElemContext,
+        layout_context: LayoutContext,
+        space: Size,
+    ) -> SizeHint {
+        let child_size_hint = self.child.size_hint(
+            elem_context,
+            LayoutContext {
+                parent: space,
+                scale_factor: layout_context.scale_factor,
+            },
+            space,
+        );
 
-        let mut my_height = if self.style.fill_height {
-            info.available.height().expect("Can't use a space-filling `Anchor` element when no max-height constraint is available")
-        } else {
-            0.0
-        };
-
-        let available_width = if self.style.fill_width {
-            Some(my_width)
-        } else {
-            info.available.width()
-        };
-
-        let available_height = if self.style.fill_height {
-            Some(my_height)
-        } else {
-            info.available.height()
-        };
-
-        self.child.layout(elem_context, LayoutInfo {
-            parent: Size::new(my_width, my_height),
-            available: SizeConstraint::new(available_width, available_height),
-            scale_factor: info.scale_factor,
-        });
-
-        let child_metrics = self.child.metrics();
-
-        if self.style.fit_child {
-            my_width = child_metrics.size.width.max(my_width);
-            my_height = child_metrics.size.height.max(my_height);
+        SizeHint {
+            preferred: child_size_hint.preferred,
+            min: child_size_hint.min,
+            max: Size::new(f64::INFINITY, f64::INFINITY),
         }
-
-        let offset_x = self.style.offset_x.resolve(&info);
-        let offset_y = self.style.offset_y.resolve(&info);
-
-        let child_offset = Vec2 {
-            x: (my_width - child_metrics.size.width) * self.style.anchor_x + offset_x,
-            y: (my_height - child_metrics.size.height) * self.style.anchor_y + offset_y,
-        };
-
-        self.computed_style = AnchorComputedStyle {
-            position: Point::ORIGIN,
-            size: Size::new(my_width, my_height),
-            child_offset,
-        };
     }
 
-    fn place(&mut self, elem_context: &ElemContext, pos: Point) {
-        self.computed_style.position = pos;
-        self.child
-            .place(elem_context, pos + self.computed_style.child_offset);
-    }
+    fn place(
+        &mut self,
+        elem_context: &ElemContext,
+        layout_context: LayoutContext,
+        pos: Point,
+        size: Size,
+    ) {
+        let child_layout_context = LayoutContext {
+            parent: size,
+            scale_factor: layout_context.scale_factor,
+        };
+        let child_size_hint = self
+            .child
+            .size_hint(elem_context, child_layout_context, size);
 
-    #[inline]
-    fn metrics(&self) -> ElementMetrics {
-        ElementMetrics {
-            position: self.computed_style.position,
-            size: self.computed_style.size,
-        }
+        let offset_x = self.style.offset_x.resolve(&layout_context);
+        let offset_y = self.style.offset_y.resolve(&layout_context);
+
+        let child_size = child_size_hint.preferred;
+
+        let child_offset = Vec2::new(
+            pos.x + self.style.anchor_x * (size.width - child_size.width) + offset_x,
+            pos.y + self.style.anchor_y * (size.height - child_size.height) + offset_y,
+        );
+
+        self.child.place(
+            elem_context,
+            child_layout_context,
+            pos + child_offset,
+            child_size,
+        );
     }
 
     #[inline]
     fn hit_test(&self, elem_context: &ElemContext, point: Point) -> bool {
         self.child.hit_test(elem_context, point)
-    }
-
-    #[inline]
-    fn move_focus(&mut self, elem_context: &ElemContext, dir: FocusDirection) -> FocusResult {
-        self.child.move_focus(elem_context, dir)
     }
 
     #[inline]

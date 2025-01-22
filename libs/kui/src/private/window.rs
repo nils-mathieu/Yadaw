@@ -1,7 +1,7 @@
 use {
     crate::{
-        Ctx, ElemContext, SizeConstraint, Window,
-        element::{Element, LayoutInfo},
+        Ctx, ElemContext, LayoutContext, Window,
+        element::Element,
         private::{CtxInner, Renderer, WindowAndSurface},
     },
     std::{cell::Cell, rc::Rc},
@@ -70,13 +70,15 @@ impl WindowInner {
         if self.recompute_layout.get() {
             let size = self.window_and_surface.cached_size();
             let size = kurbo::Size::new(size.width as f64, size.height as f64);
-
-            root_element.layout(&elem_context, LayoutInfo {
-                parent: size,
-                available: SizeConstraint::from_size(size),
-                scale_factor: self.scale_factor.get(),
-            });
-            root_element.place(&elem_context, Point::ORIGIN);
+            root_element.place(
+                &elem_context,
+                LayoutContext {
+                    parent: size,
+                    scale_factor: self.scale_factor.get(),
+                },
+                Point::ORIGIN,
+                size,
+            );
             self.recompute_layout.set(false);
         }
 

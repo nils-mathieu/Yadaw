@@ -1,4 +1,4 @@
-use {crate::LayoutInfo, std::fmt::Debug};
+use {crate::LayoutContext, std::fmt::Debug};
 
 /// Represents a length.
 #[derive(Clone)]
@@ -29,13 +29,19 @@ impl Length {
     pub const INFINITY: Self = Self::UnscaledPixels(f64::INFINITY);
 
     /// Resolves the length to a concrete value in unscaled pixels.
-    pub fn resolve(&self, info: &LayoutInfo) -> f64 {
+    pub fn resolve(&self, context: &LayoutContext) -> f64 {
+        /// If the input is finite, returns the input. Otherwise, returns zero.
+        #[inline]
+        fn finite_or_zero(f: f64) -> f64 {
+            if f.is_finite() { f } else { 0.0 }
+        }
+
         match self {
             Length::UnscaledPixels(pixels) => *pixels,
-            Length::Pixels(pixels) => pixels * info.scale_factor,
-            Length::ParentWidth(fraction) => info.parent.width * fraction,
-            Length::ParentHeight(fraction) => info.parent.height * fraction,
-            Length::Compute(f) => f.resolve(info),
+            Length::Pixels(pixels) => pixels * context.scale_factor,
+            Length::ParentWidth(fraction) => finite_or_zero(context.parent.width) * fraction,
+            Length::ParentHeight(fraction) => finite_or_zero(context.parent.height) * fraction,
+            Length::Compute(f) => f.resolve(context),
         }
     }
 }
@@ -61,7 +67,7 @@ impl Debug for Length {
 /// Defines how to compute a length in unscaled pixels.
 pub trait LengthCalculation {
     /// Resolves the length.
-    fn resolve(&self, info: &LayoutInfo) -> f64;
+    fn resolve(&self, info: &LayoutContext) -> f64;
 
     /// Clones the length calculation.
     fn dyn_clone(&self) -> Box<dyn LengthCalculation>;
@@ -80,9 +86,9 @@ impl Clone for Box<dyn LengthCalculation> {
     }
 }
 
-impl<F: 'static + Clone + Fn(&LayoutInfo) -> f64> LengthCalculation for F {
+impl<F: 'static + Clone + Fn(&LayoutContext) -> f64> LengthCalculation for F {
     #[inline]
-    fn resolve(&self, info: &LayoutInfo) -> f64 {
+    fn resolve(&self, info: &LayoutContext) -> f64 {
         self(info)
     }
 

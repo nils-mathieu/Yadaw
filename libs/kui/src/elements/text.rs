@@ -1,9 +1,9 @@
 use {
     super::Length,
-    crate::{ElemContext, Element, ElementMetrics, LayoutInfo},
+    crate::{ElemContext, Element, LayoutContext, SizeHint},
     parley::{
-        Alignment, FontContext, FontStack, FontStyle, FontWeight, FontWidth, GenericFamily, Layout,
-        LayoutContext, PositionedLayoutItem, StyleProperty,
+        Alignment, FontStack, FontStyle, FontWeight, FontWidth, GenericFamily, Layout,
+        PositionedLayoutItem, StyleProperty,
     },
     vello::{
         Glyph, Scene,
@@ -19,9 +19,9 @@ use {
 #[derive(Default)]
 pub struct TextResource {
     /// The font context responsible for managing fonts.
-    font_ctx: FontContext,
+    font_ctx: parley::FontContext,
     /// The layout context, allowing re-using allocations between text elements.
-    layout_ctx: LayoutContext<Brush>,
+    layout_ctx: parley::LayoutContext<Brush>,
 }
 
 /// Allows running a function that will be used to style a [`Text`] element.
@@ -29,7 +29,7 @@ pub trait TextStyle {
     /// Styles the provided text.
     fn style(
         &self,
-        info: &LayoutInfo,
+        layout_context: &LayoutContext,
         res: &mut TextResource,
         text: &str,
         output: &mut Layout<Brush>,
@@ -39,7 +39,7 @@ pub trait TextStyle {
 impl TextStyle for () {
     fn style(
         &self,
-        _info: &LayoutInfo,
+        _layout_context: &LayoutContext,
         _res: &mut TextResource,
         _text: &str,
         _output: &mut Layout<Brush>,
@@ -96,12 +96,12 @@ impl TextStyle for UniformStyle {
     #[rustfmt::skip]
     fn style(
         &self,
-        info: &LayoutInfo,
+        layout_context: &LayoutContext,
         res: &mut TextResource,
         text: &str,
         output: &mut Layout<Brush>,
     ) {
-        let font_size = self.font_size.resolve(info) ;
+        let font_size = self.font_size.resolve(layout_context) ;
 
         let mut builder = res.layout_ctx.ranged_builder(&mut res.font_ctx, text, 1.0);
         builder.push_default(StyleProperty::Brush(self.brush.clone()));
@@ -111,16 +111,16 @@ impl TextStyle for UniformStyle {
         builder.push_default(StyleProperty::FontStyle(self.font_style));
         builder.push_default(StyleProperty::FontWeight(self.font_weight));
         builder.push_default(StyleProperty::Underline(self.underline));
-        builder.push_default(StyleProperty::UnderlineOffset(self.underline_offset.as_ref().map(|l| l.resolve(info) as f32)));
-        builder.push_default(StyleProperty::UnderlineSize(self.underline_size.as_ref().map(|l| l.resolve(info) as f32)));
+        builder.push_default(StyleProperty::UnderlineOffset(self.underline_offset.as_ref().map(|l| l.resolve(layout_context) as f32)));
+        builder.push_default(StyleProperty::UnderlineSize(self.underline_size.as_ref().map(|l| l.resolve(layout_context) as f32)));
         builder.push_default(StyleProperty::UnderlineBrush(self.underline_brush.clone()));
         builder.push_default(StyleProperty::Strikethrough(self.strike_through));
-        builder.push_default(StyleProperty::StrikethroughOffset(self.strike_through_offset.as_ref().map(|l| l.resolve(info) as f32)));
-        builder.push_default(StyleProperty::StrikethroughSize(self.strike_through_size.as_ref().map(|l| l.resolve(info) as f32)));
+        builder.push_default(StyleProperty::StrikethroughOffset(self.strike_through_offset.as_ref().map(|l| l.resolve(layout_context) as f32)));
+        builder.push_default(StyleProperty::StrikethroughSize(self.strike_through_size.as_ref().map(|l| l.resolve(layout_context) as f32)));
         builder.push_default(StyleProperty::StrikethroughBrush(self.strike_through_brush.clone()));
-        builder.push_default(StyleProperty::LineHeight(self.line_height.as_ref().map_or(1.0, |l| l.resolve(info) / font_size) as f32));
-        builder.push_default(StyleProperty::WordSpacing(self.word_spacing.resolve(info) as f32));
-        builder.push_default(StyleProperty::LetterSpacing(self.letter_spacing.resolve(info) as f32));
+        builder.push_default(StyleProperty::LineHeight(self.line_height.as_ref().map_or(1.0, |l| l.resolve(layout_context) / font_size) as f32));
+        builder.push_default(StyleProperty::WordSpacing(self.word_spacing.resolve(layout_context) as f32));
+        builder.push_default(StyleProperty::LetterSpacing(self.letter_spacing.resolve(layout_context) as f32));
         builder.build_into(output, text);
     }
 }
@@ -154,8 +154,10 @@ struct UnstyledText {
 
     /// The position of the text.
     position: Point,
-    /// The layout info used when styling the text.
-    layout_info: LayoutInfo,
+    /// The layout context of the last call to `.place`.
+    layout_context: LayoutContext,
+    /// The width for which the text is expected to be laid out.
+    container_width: f32,
 
     /// The amount of dirt the text has.
     dirt: TextDirtAmount,
@@ -169,6 +171,14 @@ impl UnstyledText {
         self.dirt = self.dirt.max(amount);
     }
 
+    /// Sets the maximum width of the text.
+    fn set_container_width(&mut self, width: f32) {
+        if self.container_width != width {
+            self.container_width = width;
+            self.add_dirt(TextDirtAmount::Lines);
+        }
+    }
+
     /// Makes sure that the layout of the text is properly computed.
     fn flush(&mut self, elem_context: &ElemContext, style: &mut dyn TextStyle) {
         if self.dirt == TextDirtAmount::Clean {
@@ -180,15 +190,12 @@ impl UnstyledText {
             .with_resource_or_default(|text_res: &mut TextResource| {
                 if self.dirt >= TextDirtAmount::Text {
                     println!("styling...");
-                    style.style(&self.layout_info, text_res, &self.text, &mut self.layout);
+                    style.style(&self.layout_context, text_res, &self.text, &mut self.layout);
                 }
 
                 if self.dirt >= TextDirtAmount::Lines {
                     let max_advance = if self.wrap {
-                        self.layout_info
-                            .available
-                            .width()
-                            .map_or(f32::INFINITY, |x| x as f32)
+                        self.container_width
                     } else {
                         f32::INFINITY
                     };
@@ -199,7 +206,7 @@ impl UnstyledText {
                     let container_width = if self.inline {
                         None
                     } else {
-                        self.layout_info.available.width().map(|x| x as f32)
+                        Some(self.container_width)
                     };
                     self.layout.align(container_width, self.align);
                 }
@@ -208,22 +215,37 @@ impl UnstyledText {
             });
     }
 
-    /// Computes the metrics of the text.
-    fn metrics(&self) -> ElementMetrics {
-        let width = if self.inline {
-            self.layout.width()
-        } else {
-            self.layout_info
-                .available
-                .width()
-                .map_or(self.layout.width(), |x| x as f32)
-        };
-        let height = self.layout.height();
+    /// Computes the dimensions of the text for the provided space.
+    fn size_hint(
+        &mut self,
+        elem_context: &ElemContext,
+        _layout_context: LayoutContext,
+        space: Size,
+        style: &mut dyn TextStyle,
+    ) -> SizeHint {
+        self.set_container_width(space.width as f32);
+        self.flush(elem_context, style);
 
-        ElementMetrics {
-            size: Size::new(width as f64, height as f64),
-            position: self.position,
+        let preferred = if self.inline {
+            Size::new(self.layout.width() as f64, self.layout.height() as f64)
+        } else {
+            Size::new(space.width, self.layout.height() as f64)
+        };
+
+        let min = if self.wrap { Size::ZERO } else { preferred };
+
+        SizeHint {
+            preferred,
+            min,
+            max: Size::new(f64::INFINITY, f64::INFINITY),
         }
+    }
+
+    /// Places the element at the provided position and size.
+    fn place(&mut self, layout_context: LayoutContext, pos: Point, size: Size) {
+        self.position = pos;
+        self.layout_context = layout_context;
+        self.set_container_width(size.width as f32);
     }
 
     /// Draws the text to the provided scene.
@@ -426,20 +448,24 @@ impl Text<UniformStyle> {
 }
 
 impl<S: TextStyle> Element for Text<S> {
-    fn layout(&mut self, elem_context: &ElemContext, info: LayoutInfo) {
-        self.unstyled.layout_info = info;
-        self.unstyled.add_dirt(TextDirtAmount::Lines);
-        self.unstyled.flush(elem_context, &mut self.style);
+    fn size_hint(
+        &mut self,
+        elem_context: &ElemContext,
+        layout_context: LayoutContext,
+        space: Size,
+    ) -> SizeHint {
+        self.unstyled
+            .size_hint(elem_context, layout_context, space, &mut self.style)
     }
 
-    #[inline]
-    fn place(&mut self, _elem_context: &ElemContext, pos: Point) {
-        self.unstyled.position = pos;
-    }
-
-    #[inline]
-    fn metrics(&self) -> ElementMetrics {
-        self.unstyled.metrics()
+    fn place(
+        &mut self,
+        _elem_context: &ElemContext,
+        layout_context: LayoutContext,
+        pos: Point,
+        size: Size,
+    ) {
+        self.unstyled.place(layout_context, pos, size);
     }
 
     fn draw(&mut self, elem_context: &ElemContext, scene: &mut Scene) {
@@ -448,21 +474,24 @@ impl<S: TextStyle> Element for Text<S> {
 }
 
 impl Element for Text<dyn TextStyle> {
-    #[inline]
-    fn layout(&mut self, elem_context: &ElemContext, info: LayoutInfo) {
-        self.unstyled.layout_info = info;
-        self.unstyled.add_dirt(TextDirtAmount::Lines);
-        self.unstyled.flush(elem_context, &mut self.style);
+    fn size_hint(
+        &mut self,
+        elem_context: &ElemContext,
+        layout_context: LayoutContext,
+        space: Size,
+    ) -> SizeHint {
+        self.unstyled
+            .size_hint(elem_context, layout_context, space, &mut self.style)
     }
 
-    #[inline]
-    fn place(&mut self, _elem_context: &ElemContext, pos: Point) {
-        self.unstyled.position = pos;
-    }
-
-    #[inline]
-    fn metrics(&self) -> ElementMetrics {
-        self.unstyled.metrics()
+    fn place(
+        &mut self,
+        _elem_context: &ElemContext,
+        layout_context: LayoutContext,
+        pos: Point,
+        size: Size,
+    ) {
+        self.unstyled.place(layout_context, pos, size);
     }
 
     fn draw(&mut self, elem_context: &ElemContext, scene: &mut Scene) {

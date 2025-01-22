@@ -1,8 +1,5 @@
 use {
-    crate::{
-        ElemContext, Element, ElementMetrics, FocusDirection, FocusResult, LayoutInfo,
-        SizeConstraint, elements::Length,
-    },
+    crate::{ElemContext, Element, LayoutContext, SizeHint, elements::Length},
     smallvec::smallvec,
     vello::{
         kurbo::{
@@ -32,9 +29,84 @@ pub struct DivStyle {
     pub padding_top: Length,
     pub padding_bottom: Length,
     pub width: Option<Length>,
+    pub height: Option<Length>,
+    pub min_width: Option<Length>,
+    pub min_height: Option<Length>,
+    pub max_width: Option<Length>,
+    pub max_height: Option<Length>,
     pub clip_content: bool,
     pub opacity: f32,
-    pub height: Option<Length>,
+}
+
+impl DivStyle {
+    /// Resolves the horizontal padding.
+    ///
+    /// # Remarks
+    ///
+    /// This function does not take border thickness into account.
+    pub fn resolve_horizontal_padding(&self, layout_context: &LayoutContext) -> f64 {
+        self.padding_left.resolve(layout_context) + self.padding_right.resolve(layout_context)
+    }
+
+    /// Resolves the vertical padding.
+    ///
+    /// # Remarks
+    ///
+    /// This function does not take border thickness into account.
+    pub fn resolve_vertical_padding(&self, layout_context: &LayoutContext) -> f64 {
+        self.padding_top.resolve(layout_context) + self.padding_bottom.resolve(layout_context)
+    }
+
+    /// Resolves the vertical and horizontal padding into a [`Size`].
+    ///
+    /// # Remarks
+    ///
+    /// This function *does* take border thickness into account.
+    pub fn resolve_padding_size(&self, layout_context: &LayoutContext) -> Size {
+        let border_thickness = self.border_thickness.resolve(layout_context);
+        Size::new(
+            self.resolve_horizontal_padding(layout_context) + border_thickness * 2.0,
+            self.resolve_vertical_padding(layout_context) + border_thickness * 2.0,
+        )
+    }
+
+    /// Resolves the minimum size of the [`Div`] element.
+    pub fn resolve_min_size(&self, layout_context: &LayoutContext) -> Size {
+        Size::new(
+            self.min_width
+                .as_ref()
+                .map_or(0.0, |min_width| min_width.resolve(layout_context)),
+            self.min_height
+                .as_ref()
+                .map_or(0.0, |min_height| min_height.resolve(layout_context)),
+        )
+    }
+
+    /// Resolves the maximum size of the [`Div`] element.
+    pub fn resolve_max_size(&self, layout_context: &LayoutContext) -> Size {
+        Size::new(
+            self.max_width
+                .as_ref()
+                .map_or(f64::INFINITY, |max_width| max_width.resolve(layout_context)),
+            self.max_height
+                .as_ref()
+                .map_or(f64::INFINITY, |max_height| {
+                    max_height.resolve(layout_context)
+                }),
+        )
+    }
+
+    /// Resolves the size of the [`Div`] element.
+    pub fn resolve_size(&self, fallback: Size, layout_context: &LayoutContext) -> Size {
+        Size::new(
+            self.width
+                .as_ref()
+                .map_or(fallback.width, |width| width.resolve(layout_context)),
+            self.height
+                .as_ref()
+                .map_or(fallback.height, |height| height.resolve(layout_context)),
+        )
+    }
 }
 
 impl Default for DivStyle {
@@ -54,9 +126,13 @@ impl Default for DivStyle {
             padding_top: Length::ZERO,
             padding_bottom: Length::ZERO,
             width: None,
+            height: None,
+            min_width: None,
+            min_height: None,
+            max_width: None,
+            max_height: None,
             clip_content: false,
             opacity: 1.0,
-            height: None,
         }
     }
 }
@@ -64,19 +140,11 @@ impl Default for DivStyle {
 /// The computed style of a [`Div`] element.
 #[derive(Default, Clone, Debug)]
 pub struct DivComputedStyle {
-    /// The size of the element.
-    pub size: Size,
-    /// The position of the element.
     pub position: Point,
-    /// The offset of the child element, relative to the parent element.
-    pub child_offset: Vec2,
-    /// The corner radiuses of the element.
+    pub size: Size,
     pub corner_radiuses: RoundedRectRadii,
-    /// The thickness of the element's border.
     pub border_thickness: f64,
-    /// The length of the element's border dash.
     pub border_dash: f64,
-    /// The offset between the dashes of the element's border.
     pub border_dash_offset: f64,
 }
 
@@ -167,6 +235,30 @@ impl<E> Div<E> {
         self
     }
 
+    /// Sets the minimum width of the [`Div`] element.
+    pub fn min_width(mut self, min_width: Length) -> Self {
+        self.style.min_width = Some(min_width);
+        self
+    }
+
+    /// Sets the minimum height of the [`Div`] element.
+    pub fn min_height(mut self, min_height: Length) -> Self {
+        self.style.min_height = Some(min_height);
+        self
+    }
+
+    /// Sets the maximum width of the [`Div`] element.
+    pub fn max_width(mut self, max_width: Length) -> Self {
+        self.style.max_width = Some(max_width);
+        self
+    }
+
+    /// Sets the maximum height of the [`Div`] element.
+    pub fn max_height(mut self, max_height: Length) -> Self {
+        self.style.max_height = Some(max_height);
+        self
+    }
+
     /// Sets whether the content of the [`Div`] element should be clipped.
     pub fn clip_content(mut self, clip_content: bool) -> Self {
         self.style.clip_content = clip_content;
@@ -200,69 +292,83 @@ impl<E: ?Sized + Element> Div<E> {
 }
 
 impl<E: ?Sized + Element> Element for Div<E> {
-    fn layout(&mut self, elem_context: &ElemContext, info: LayoutInfo) {
-        let border_thickness = self.style.border_thickness.resolve(&info);
+    fn size_hint(
+        &mut self,
+        elem_context: &ElemContext,
+        layout_context: LayoutContext,
+        space: Size,
+    ) -> SizeHint {
+        let padding = self.style.resolve_padding_size(&layout_context);
 
-        let padding_left = self.style.padding_left.resolve(&info) + border_thickness;
-        let padding_right = self.style.padding_right.resolve(&info) + border_thickness;
-        let padding_top = self.style.padding_top.resolve(&info) + border_thickness;
-        let padding_bottom = self.style.padding_bottom.resolve(&info) + border_thickness;
+        let min_size = self.style.resolve_min_size(&layout_context);
+        let max_size = self.style.resolve_max_size(&layout_context);
+
+        let mut child_space = self.style.resolve_size(space, &layout_context);
+        child_space = child_space.clamp(min_size, max_size);
+        child_space -= padding;
+        child_space.width = child_space.width.max(0.0);
+        child_space.height = child_space.height.max(0.0);
+
+        let child_size_hint = self.child.size_hint(
+            elem_context,
+            LayoutContext {
+                parent: child_space,
+                scale_factor: layout_context.scale_factor,
+            },
+            child_space,
+        );
+
+        SizeHint {
+            preferred: self
+                .style
+                .resolve_size(child_size_hint.preferred + padding, &layout_context),
+            min: min_size,
+            max: max_size,
+        }
+    }
+
+    fn place(
+        &mut self,
+        elem_context: &ElemContext,
+        layout_context: LayoutContext,
+        position: Point,
+        size: Size,
+    ) {
+        let border_thickness = self.style.border_thickness.resolve(&layout_context);
+
+        let padding_left = self.style.padding_left.resolve(&layout_context) + border_thickness;
+        let padding_right = self.style.padding_right.resolve(&layout_context) + border_thickness;
+        let padding_top = self.style.padding_top.resolve(&layout_context) + border_thickness;
+        let padding_bottom = self.style.padding_bottom.resolve(&layout_context) + border_thickness;
 
         let horizontal_padding = padding_left + padding_right;
         let vertical_padding = padding_top + padding_bottom;
 
-        let requested_width = self.style.width.as_ref().map(|w| w.resolve(&info));
-        let requested_height = self.style.height.as_ref().map(|h| h.resolve(&info));
+        let content_size = size - Size::new(horizontal_padding, vertical_padding);
 
-        let content_width = requested_width
-            .or(info.available.width())
-            .map(|w| w - horizontal_padding);
-        let content_height = requested_height
-            .or(info.available.height())
-            .map(|h| h - vertical_padding);
-
-        self.child.layout(elem_context, LayoutInfo {
-            parent: Size {
-                width: content_width.unwrap_or_default(),
-                height: content_height.unwrap_or_default(),
+        self.child.place(
+            elem_context,
+            LayoutContext {
+                parent: content_size,
+                scale_factor: layout_context.scale_factor,
             },
-            available: SizeConstraint::new(content_width, content_height),
-            scale_factor: info.scale_factor,
-        });
-
-        let child_metrics = self.child.metrics();
+            position + Vec2::new(padding_left, padding_top),
+            content_size,
+        );
 
         self.computed_style = DivComputedStyle {
-            size: Size {
-                width: requested_width.unwrap_or(child_metrics.size.width + horizontal_padding),
-                height: requested_height.unwrap_or(child_metrics.size.height + vertical_padding),
-            },
-            position: Point::ORIGIN,
-            child_offset: Vec2::new(padding_left, padding_top),
+            size,
+            position,
             corner_radiuses: RoundedRectRadii {
-                top_left: self.style.top_left_radius.resolve(&info),
-                top_right: self.style.top_right_radius.resolve(&info),
-                bottom_right: self.style.bottom_left_radius.resolve(&info),
-                bottom_left: self.style.bottom_right_radius.resolve(&info),
+                top_left: self.style.top_left_radius.resolve(&layout_context),
+                top_right: self.style.top_right_radius.resolve(&layout_context),
+                bottom_right: self.style.bottom_left_radius.resolve(&layout_context),
+                bottom_left: self.style.bottom_right_radius.resolve(&layout_context),
             },
             border_thickness,
-            border_dash: self.style.border_dash.resolve(&info),
-            border_dash_offset: self.style.border_dash_offset.resolve(&info),
+            border_dash: self.style.border_dash.resolve(&layout_context),
+            border_dash_offset: self.style.border_dash_offset.resolve(&layout_context),
         };
-    }
-
-    #[inline]
-    fn place(&mut self, elem_context: &ElemContext, pos: Point) {
-        self.computed_style.position = pos;
-        self.child
-            .place(elem_context, pos + self.computed_style.child_offset);
-    }
-
-    fn metrics(&self) -> ElementMetrics {
-        ElementMetrics {
-            position: self.computed_style.position,
-            size: self.computed_style.size,
-        }
     }
 
     fn hit_test(&self, elem_context: &ElemContext, point: Point) -> bool {
@@ -275,11 +381,6 @@ impl<E: ?Sized + Element> Element for Div<E> {
         } else {
             false
         }
-    }
-
-    #[inline]
-    fn move_focus(&mut self, elem_context: &ElemContext, dir: FocusDirection) -> FocusResult {
-        self.child.move_focus(elem_context, dir)
     }
 
     fn draw(&mut self, elem_context: &ElemContext, scene: &mut vello::Scene) {
