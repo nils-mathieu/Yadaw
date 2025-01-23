@@ -3,10 +3,18 @@ use {
         Ctx, ElemContext, LayoutContext, Window,
         element::Element,
         event::{Event, EventResult},
-        private::{CtxInner, Renderer, WindowAndSurface},
+        private::{CtxInner, ManagedSurface, Renderer},
     },
     core::f64,
-    std::{cell::Cell, rc::Rc},
+    parking_lot::Mutex,
+    std::{
+        cell::Cell,
+        rc::Rc,
+        sync::{
+            Arc,
+            atomic::{AtomicBool, Ordering},
+        },
+    },
     vello::{
         kurbo::{self, Point},
         peniko, wgpu,
@@ -17,17 +25,44 @@ use {
     },
 };
 
+/// The thread-safe state of a [`WindowInner`], shared with window proxies of the window.
+pub struct WindowProxyInner {
+    /// The pending events.
+    pending_events: Mutex<Vec<Box<dyn Send + Event>>>,
+
+    /// Whether the layout of the UI tree needs to be re-computed.
+    recompute_layout: AtomicBool,
+
+    /// The concrete window object.
+    window: Box<dyn WinitWindow>,
+}
+
+impl WindowProxyInner {
+    /// Sends an event to the window's UI tree.
+    pub fn send_event(&self, event: Box<dyn Send + Event>) {
+        self.pending_events.lock().push(event);
+    }
+
+    /// Requests the layout to be recomputed.
+    pub fn request_relayout(&self) {
+        self.recompute_layout.store(true, Ordering::Release);
+        self.window.request_redraw();
+    }
+
+    /// Returns a reference to the concrete winit [`Window`](WinitWindow) object.
+    #[inline]
+    pub fn winit_window(&self) -> &dyn WinitWindow {
+        self.window.as_ref()
+    }
+}
+
 /// The inner state associated with a window.
 pub struct WindowInner {
     /// The context that owns the window.
     ctx: Rc<CtxInner>,
 
-    /// The concrete winit object that can be used to manipulate
-    /// the underlying window.
-    window_and_surface: WindowAndSurface,
-
-    /// Whether the layout of the UI tree needs to be re-computed.
-    recompute_layout: Cell<bool>,
+    /// The concrete winit object that can be used to render to the widnow.
+    surface: ManagedSurface,
 
     /// The root element of the window.
     root_element: Cell<Box<dyn Element>>,
@@ -36,20 +71,35 @@ pub struct WindowInner {
     scale_factor: Cell<f64>,
     /// The last reported position of the pointer.
     last_pointer_position: Cell<PhysicalPosition<f64>>,
+
+    /// The pending events that need to be dispatched to the window.
+    proxy: Arc<WindowProxyInner>,
 }
 
 impl WindowInner {
     /// Creates a new [`WindowInner`] object.
-    pub fn new(ctx: Rc<CtxInner>, window_and_surface: WindowAndSurface) -> Self {
-        let scale_factor = window_and_surface.winit_window().scale_factor();
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that `window` is associated with `managed_surface`.
+    pub unsafe fn new(
+        ctx: Rc<CtxInner>,
+        managed_surface: ManagedSurface,
+        window: Box<dyn WinitWindow>,
+    ) -> Self {
+        let scale_factor = window.scale_factor();
 
         Self {
             ctx,
-            window_and_surface,
-            recompute_layout: Cell::new(true),
+            surface: managed_surface,
             root_element: Cell::new(Box::new(())),
             scale_factor: Cell::new(scale_factor),
             last_pointer_position: Cell::new(PhysicalPosition::new(f64::INFINITY, f64::INFINITY)),
+            proxy: Arc::new(WindowProxyInner {
+                pending_events: Mutex::new(Vec::new()),
+                recompute_layout: AtomicBool::new(false),
+                window,
+            }),
         }
     }
 
@@ -116,8 +166,8 @@ impl WindowInner {
         let elem_context = self.make_elem_context();
 
         self.with_root_element(|elem| {
-            if self.recompute_layout.get() {
-                let size = self.window_and_surface.cached_size();
+            if self.proxy.recompute_layout.swap(false, Ordering::Acquire) {
+                let size = self.surface.cached_size();
                 let size = kurbo::Size::new(size.width as f64, size.height as f64);
                 elem.place(
                     &elem_context,
@@ -128,7 +178,6 @@ impl WindowInner {
                     Point::ORIGIN,
                     size,
                 );
-                self.recompute_layout.set(false);
             }
 
             scene.reset();
@@ -142,23 +191,41 @@ impl WindowInner {
         self.with_root_element(|elem| elem.event(&elem_context, event))
     }
 
+    pub fn dispatch_pending_events(self: &Rc<Self>) {
+        let elem_context = self.make_elem_context();
+        let mut pending_events = std::mem::take(&mut *self.proxy.pending_events.lock());
+        self.with_root_element(|elem| {
+            for event in pending_events.drain(..) {
+                elem.event(&elem_context, event.as_ref());
+            }
+        });
+
+        // If no new events have been added to the pending list, just re-use the previous
+        // allocation.
+        let mut slot = self.proxy.pending_events.lock();
+        if slot.is_empty() {
+            *slot = pending_events;
+        }
+    }
+
     /// Renders the provided scene to this window.
     #[inline]
     pub fn render_scene(&self, renderer: &mut Renderer, scene: &vello::Scene) {
-        self.window_and_surface.render(renderer, scene);
+        self.surface
+            .render(self.proxy.window.as_ref(), renderer, scene);
     }
 
     /// Notifies the window that it has been resized.
     #[inline]
     pub fn notify_resized(&self, size: PhysicalSize<u32>) {
-        self.recompute_layout.set(true);
-        self.window_and_surface.set_size(size);
+        self.surface.set_size(size);
+        self.proxy.recompute_layout.store(true, Ordering::Release);
     }
 
     /// Notifies the window that the scale factor of the window has changed.
     pub fn notify_scale_factor_changed(&self, scale_factor: f64) {
         self.scale_factor.set(scale_factor);
-        self.recompute_layout.set(true);
+        self.proxy.recompute_layout.store(true, Ordering::Release);
     }
 
     /// Returns a reference to the context that owns this window.
@@ -167,22 +234,16 @@ impl WindowInner {
         &self.ctx
     }
 
-    /// Returns a reference to the concrete winit [`Window`](WinitWindow) object.
-    #[inline]
-    pub fn winit_window(&self) -> &dyn WinitWindow {
-        self.window_and_surface.winit_window()
-    }
-
     /// Sets the present mode to be used by the window.
     #[inline]
     pub fn set_present_mode(&self, present_mode: wgpu::PresentMode) {
-        self.window_and_surface.set_present_mode(present_mode);
+        self.surface.set_present_mode(present_mode);
     }
 
     /// Sets the base (clear) color of the window.
     #[inline]
     pub fn set_base_color(&self, base_color: peniko::Color) {
-        self.window_and_surface.set_base_color(base_color);
+        self.surface.set_base_color(base_color);
     }
 
     /// Sets the root element of the window.
@@ -191,14 +252,7 @@ impl WindowInner {
         let elem_ctx = self.make_elem_context();
         elem.begin(&elem_ctx);
         self.root_element.set(elem);
-        self.recompute_layout.set(true);
-        self.window_and_surface.winit_window().request_redraw();
-    }
-
-    /// Requests a re-layout of the UI tree.
-    pub fn request_relayout(&self) {
-        self.recompute_layout.set(true);
-        self.window_and_surface.winit_window().request_redraw();
+        self.proxy.request_relayout();
     }
 
     /// Returns the window's scale factor.
@@ -223,6 +277,12 @@ impl WindowInner {
     /// Returns the window's size.
     #[inline]
     pub fn cached_size(&self) -> PhysicalSize<u32> {
-        self.window_and_surface.cached_size()
+        self.surface.cached_size()
+    }
+
+    /// Returns the pending events list for this window.
+    #[inline]
+    pub fn proxy(&self) -> &Arc<WindowProxyInner> {
+        &self.proxy
     }
 }

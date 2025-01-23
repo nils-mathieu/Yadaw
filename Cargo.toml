@@ -8,3 +8,4 @@ kui = { path = "libs/kui" }
 adevice = { path = "libs/adevice" }
 
 bitflags = "2"
+parking_lot = "0.12"

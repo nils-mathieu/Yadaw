@@ -6,6 +6,42 @@ use {
     vello::kurbo::{Point, Size},
 };
 
+/// The function responsible for hooking into the event system. Used with `HookEvent`.
+pub trait OnEvent<E: ?Sized> {
+    /// Indicates that a new event has been received.
+    fn on_event(
+        &mut self,
+        child: &mut E,
+        elem_context: &ElemContext,
+        event: &dyn Event,
+    ) -> EventResult;
+}
+
+impl<E: ?Sized> OnEvent<E> for () {
+    fn on_event(
+        &mut self,
+        _child: &mut E,
+        _elem_context: &ElemContext,
+        _event: &dyn Event,
+    ) -> EventResult {
+        EventResult::Continue
+    }
+}
+
+impl<E: ?Sized, F> OnEvent<E> for F
+where
+    F: FnMut(&mut E, &ElemContext, &dyn Event) -> EventResult,
+{
+    fn on_event(
+        &mut self,
+        child: &mut E,
+        elem_context: &ElemContext,
+        event: &dyn Event,
+    ) -> EventResult {
+        self(child, elem_context, event)
+    }
+}
+
 /// A simple element that hooks into the event system with a function.
 #[derive(Default, Clone, Debug)]
 pub struct HookEvent<F, E: ?Sized> {
@@ -20,7 +56,7 @@ impl<F, E> HookEvent<F, E> {
     #[inline]
     pub fn new(on_event: F, child: E) -> Self
     where
-        F: FnMut(&mut E, &ElemContext, &dyn Event) -> EventResult,
+        F: OnEvent<E>,
     {
         Self { on_event, child }
     }
@@ -49,7 +85,7 @@ impl<F, E> HookEvent<F, E> {
 
 impl<F, E> Element for HookEvent<F, E>
 where
-    F: FnMut(&mut E, &ElemContext, &dyn Event) -> EventResult,
+    F: OnEvent<E>,
     E: Element + ?Sized,
 {
     #[inline]
@@ -89,7 +125,11 @@ where
     }
 
     fn event(&mut self, elem_context: &ElemContext, event: &dyn Event) -> EventResult {
-        if (self.on_event)(&mut self.child, elem_context, event).is_handled() {
+        if self
+            .on_event
+            .on_event(&mut self.child, elem_context, event)
+            .is_handled()
+        {
             return EventResult::Handled;
         }
 

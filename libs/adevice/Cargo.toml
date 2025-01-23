@@ -12,7 +12,7 @@ coreaudio = ["dep:coreaudio-sys"]
 [dependencies]
 bitflags.workspace = true
 
-[dependencies.windows]
+[target.'cfg(target_os = "windows")'.dependencies.windows]
 version = "0.59"
 optional = true
 features = [
@@ -28,7 +28,7 @@ features = [
     "Win32_Security",
 ]
 
-[dependencies.coreaudio-sys]
+[target.'cfg(target_os = "macos")'.dependencies.coreaudio-sys]
 version = "0.2"
 optional = true
 default-features = false

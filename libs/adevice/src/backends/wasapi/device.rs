@@ -223,7 +223,7 @@ impl WasapiDevice {
     fn query_supported_formats(
         &self,
         share_mode: AUDCLNT_SHAREMODE,
-    ) -> Result<DeviceFormats, Error> {
+    ) -> Result<Option<DeviceFormats>, Error> {
         let mut formats = DeviceFormats::DUMMY;
         let mut waveformat = WAVEFORMATEXTENSIBLE::default();
 
@@ -372,7 +372,11 @@ impl WasapiDevice {
             }
         }
 
-        Ok(formats)
+        if formats.validate() {
+            Ok(Some(formats))
+        } else {
+            Ok(None)
+        }
     }
 }
 
@@ -385,7 +389,7 @@ impl Device for WasapiDevice {
     fn output_formats(&self, share: ShareMode) -> Result<Option<DeviceFormats>, Error> {
         if self.data_flow()? == eRender {
             let share = share_mode_to_wasapi(share);
-            Ok(Some(self.query_supported_formats(share)?))
+            self.query_supported_formats(share)
         } else {
             Ok(None)
         }
@@ -394,7 +398,7 @@ impl Device for WasapiDevice {
     fn input_formats(&self, share: ShareMode) -> Result<Option<DeviceFormats>, Error> {
         if self.data_flow()? == eCapture {
             let share = share_mode_to_wasapi(share);
-            Ok(Some(self.query_supported_formats(share)?))
+            self.query_supported_formats(share)
         } else {
             Ok(None)
         }

@@ -1,7 +1,7 @@
 use {
     crate::{
         CallbackId,
-        private::{Renderer, WindowAndSurface, WindowInner},
+        private::{ManagedSurface, Renderer, WindowInner},
     },
     rustc_hash::FxHashMap,
     slotmap::SlotMap,
@@ -14,7 +14,7 @@ use {
         time::Instant,
     },
     winit::{
-        event_loop::ActiveEventLoop,
+        event_loop::{ActiveEventLoop, EventLoopProxy},
         window::{WindowAttributes, WindowId},
     },
 };
@@ -167,6 +167,16 @@ impl CtxInner {
         f(unsafe { ael.as_ref() })
     }
 
+    /// Creates a new event loop proxy.
+    ///
+    /// # Panics
+    ///
+    /// This function panics if the internal `active_event_loop` field is not set.
+    #[inline]
+    pub fn event_loop_proxy(&self) -> EventLoopProxy {
+        self.with_active_event_loop(|el| el.create_proxy())
+    }
+
     //
     // WINDOWS
     //
@@ -186,23 +196,23 @@ impl CtxInner {
         let mut renderer_and_windows = self.renderer_and_windows.borrow_mut();
         let RendererAndWindows { renderer, windows } = &mut *renderer_and_windows;
 
-        let window_and_surface;
+        let surface;
         match renderer {
-            Some(renderer) => window_and_surface = WindowAndSurface::new(renderer, window),
+            Some(renderer) => surface = unsafe { ManagedSurface::new(renderer, window.as_ref()) },
             None => {
                 let renderer_val;
-                (renderer_val, window_and_surface) = Renderer::new_for_window(window);
+                (renderer_val, surface) = unsafe { Renderer::new_for_window(window.as_ref()) };
                 *renderer = Some(renderer_val);
             }
         };
 
-        let window_inner = Rc::new(WindowInner::new(self.clone(), window_and_surface));
+        let window_inner = unsafe { Rc::new(WindowInner::new(self.clone(), surface, window)) };
 
         if show_window {
             let mut scene = vello::Scene::new();
             window_inner.draw_to_scene(&mut scene);
             window_inner.render_scene(renderer.as_mut().unwrap(), &scene);
-            window_inner.winit_window().set_visible(true);
+            window_inner.proxy().winit_window().set_visible(true);
         }
 
         windows.insert(id, window_inner.clone());
@@ -260,6 +270,15 @@ impl CtxInner {
             .windows
             .remove(&id)
             .is_some()
+    }
+
+    /// Dispatches pending events for all windows.
+    pub fn dispatch_pending_events(&self) {
+        self.renderer_and_windows
+            .borrow()
+            .windows
+            .values()
+            .for_each(|window| window.dispatch_pending_events())
     }
 
     //

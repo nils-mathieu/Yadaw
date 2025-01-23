@@ -34,13 +34,18 @@ pub struct Renderer {
 
 impl Renderer {
     /// Creates a new [`Renderer`] along with a window.
-    pub fn new_for_window(window: Box<dyn Window>) -> (Self, WindowAndSurface) {
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that the provided window remains valid for the lifetime of the
+    /// created surface.
+    pub unsafe fn new_for_window(window: &dyn Window) -> (Self, ManagedSurface) {
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
             backends: wgpu::Backends::all(),
             ..Default::default()
         });
 
-        let surface = WindowAndSurface::from_instance(&instance, window);
+        let surface = ManagedSurface::from_instance(&instance, window);
 
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
@@ -93,16 +98,13 @@ impl Renderer {
 }
 
 /// Represents a window and its associated surface.
-pub struct WindowAndSurface {
+pub struct ManagedSurface {
     /// The surface object.
     ///
     /// # Safety
     ///
     /// This field must be dropped *before* the window because it references it.
     surface: wgpu::Surface<'static>,
-
-    /// The winit window.
-    window: Box<dyn Window>,
 
     /// The cached size of the window/surface.
     size: Cell<PhysicalSize<u32>>,
@@ -114,11 +116,16 @@ pub struct WindowAndSurface {
     base_color: Cell<peniko::Color>,
 }
 
-impl WindowAndSurface {
-    /// Creates a new [`WindowAndSurface`] object.
+impl ManagedSurface {
+    /// Creates a new [`ManagedSurface`] object.
     ///
     /// This function does not check whether the created surface supports a specific format.
-    fn from_instance(instance: &wgpu::Instance, window: Box<dyn Window>) -> Self {
+    ///
+    /// # Safety
+    ///
+    /// The caller must make sure that the provided window remains valid for the lifetime
+    /// of the created surface.
+    fn from_instance(instance: &wgpu::Instance, window: &dyn Window) -> Self {
         let surface = unsafe {
             let target = wgpu::SurfaceTargetUnsafe::from_window(&window)
                 .unwrap_or_else(|err| panic!("Failed to create surface: {err}"));
@@ -131,7 +138,6 @@ impl WindowAndSurface {
 
         Self {
             surface,
-            window,
             size: Cell::new(size),
             present_mode: Cell::new(wgpu::PresentMode::AutoVsync),
             surface_dirty: Cell::new(true),
@@ -143,7 +149,12 @@ impl WindowAndSurface {
     ///
     /// This function will panic if the created surface does not support the output
     /// format of the renderer.
-    pub fn new(renderer: &Renderer, window: Box<dyn Window>) -> Self {
+    ///
+    /// # Safety
+    ///
+    /// The caller must make sure that the provided window remains valid for the lifetime
+    /// of the created surface.
+    pub unsafe fn new(renderer: &Renderer, window: &dyn Window) -> Self {
         let surface = Self::from_instance(&renderer.instance, window);
 
         assert!(
@@ -185,7 +196,7 @@ impl WindowAndSurface {
     }
 
     /// Renders the provided scene to the surface.
-    pub fn render(&self, renderer: &mut Renderer, scene: &vello::Scene) {
+    pub fn render(&self, window: &dyn Window, renderer: &mut Renderer, scene: &vello::Scene) {
         let size = self.size.get();
 
         if size.width == 0 || size.height == 0 {
@@ -228,13 +239,7 @@ impl WindowAndSurface {
             )
             .unwrap_or_else(|err| panic!("Failed to render to surface: {err}"));
 
-        self.window.pre_present_notify();
+        window.pre_present_notify();
         frame.present();
-    }
-
-    /// Returns a reference to the winit window.
-    #[inline]
-    pub fn winit_window(&self) -> &dyn Window {
-        self.window.as_ref()
     }
 }

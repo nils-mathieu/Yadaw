@@ -11,11 +11,35 @@ use {
     winit::window::CursorIcon,
 };
 
+/// Describes how to answer "on click" events.
+pub trait OnClick<A: ?Sized> {
+    /// Called when the button is clicked.
+    fn on_click(&mut self, appearance: &mut A, elem_context: &ElemContext);
+}
+
+impl<A: ?Sized> OnClick<A> for () {
+    fn on_click(&mut self, _appearance: &mut A, _elem_context: &ElemContext) {}
+}
+
+impl<A: ?Sized, F> OnClick<A> for F
+where
+    F: FnMut(&mut A, &ElemContext),
+{
+    #[inline]
+    fn on_click(&mut self, appearance: &mut A, elem_context: &ElemContext) {
+        self(appearance, elem_context);
+    }
+}
+
 /// Represents a button.
 #[derive(Clone, Debug, Default)]
 pub struct Button<F, A: ?Sized> {
     state: InteractiveState,
 
+    /// Whether to act on press.
+    ///
+    /// Otherwise, the button will act on release.
+    pub act_on_press: bool,
     /// The callback to call when the button is clicked.
     pub on_click: F,
     /// The appearance of the button.
@@ -26,9 +50,10 @@ impl<F, A> Button<F, A> {
     /// Creates a new [`Button`] with the provided callback and appearance.
     pub fn new(on_click: F, appearance: A) -> Self
     where
-        F: FnMut(&mut A, &ElemContext),
+        F: OnClick<A>,
     {
         Self {
+            act_on_press: false,
             state: InteractiveState::empty(),
             on_click,
             appearance,
@@ -47,6 +72,7 @@ impl<F, A> Button<F, A> {
         F2: FnMut(&mut A, &ElemContext),
     {
         Button {
+            act_on_press: self.act_on_press,
             state: self.state,
             on_click,
             appearance: self.appearance,
@@ -56,16 +82,23 @@ impl<F, A> Button<F, A> {
     /// Sets the appearance of the button.
     pub fn child<A2>(self, appearance: A2) -> Button<F, A2> {
         Button {
+            act_on_press: self.act_on_press,
             state: self.state,
             on_click: self.on_click,
             appearance,
         }
     }
+
+    /// Whether to act on press.
+    pub fn act_on_press(mut self, yes: bool) -> Self {
+        self.act_on_press = yes;
+        self
+    }
 }
 
 impl<F, A> Element for Button<F, A>
 where
-    F: FnMut(&mut A, &ElemContext),
+    F: OnClick<A>,
     A: InputAppearance,
 {
     #[inline]
@@ -104,7 +137,9 @@ where
     #[inline]
     fn event(&mut self, elem_context: &ElemContext, event: &dyn Event) -> EventResult {
         let og_state = self.state;
-        let interaction = self.state.handle_interactions(&mut self.appearance, event);
+        let interaction =
+            self.state
+                .handle_interactions(self.act_on_press, &mut self.appearance, event);
         if interaction.entered() {
             elem_context
                 .window
@@ -119,7 +154,7 @@ where
             self.appearance.state_changed(elem_context, self.state);
         }
         if interaction.clicked() {
-            (self.on_click)(&mut self.appearance, elem_context);
+            self.on_click.on_click(&mut self.appearance, elem_context);
         }
         if interaction.event_handled() {
             return EventResult::Handled;

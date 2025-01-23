@@ -381,10 +381,15 @@ impl Element for Flex<'_> {
             })
             .clamp(child.size_hint.min, child.size_hint.max);
 
+            let child_cross_length = match self.direction {
+                Direction::Horizontal => child_size.height,
+                Direction::Vertical => child_size.width,
+            };
+
             let cross_axis_offset = match child.align_self.unwrap_or(self.align) {
                 Align::Start => 0.0,
-                Align::Center => (cross_size - child_size.height) / 2.0,
-                Align::End => cross_size - child_size.height,
+                Align::Center => (cross_size - child_cross_length) * 0.5,
+                Align::End => cross_size - child_cross_length,
             };
 
             let child_offset = match self.direction {

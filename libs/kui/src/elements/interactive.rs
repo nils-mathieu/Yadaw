@@ -124,6 +124,7 @@ impl InteractiveState {
     /// Handles the provided event, updating the state of the element accordingly.
     pub fn handle_interactions(
         &mut self,
+        act_on_press: bool,
         appearance: &mut dyn InputAppearance,
         event: &dyn Event,
     ) -> Interaction {
@@ -132,7 +133,13 @@ impl InteractiveState {
                 return Interaction::empty();
             }
 
-            if appearance.hit_test(ev.position) {
+            let now_hover = appearance.hit_test(ev.position);
+
+            if self.hover() == now_hover {
+                return Interaction::empty();
+            }
+
+            if now_hover {
                 self.insert(InteractiveState::HOVER);
                 return Interaction::ENTERED;
             } else {
@@ -155,12 +162,18 @@ impl InteractiveState {
             if ev.state.is_pressed() {
                 if hover {
                     self.insert(InteractiveState::ACTIVE);
-                    return Interaction::EVENT_HANDLED | Interaction::PRESSED;
+                    if act_on_press {
+                        return Interaction::EVENT_HANDLED
+                            | Interaction::PRESSED
+                            | Interaction::CLICKED;
+                    } else {
+                        return Interaction::EVENT_HANDLED | Interaction::PRESSED;
+                    }
                 }
-            } else if self.contains(InteractiveState::ACTIVE) {
+            } else if self.active() {
                 self.remove(InteractiveState::ACTIVE);
 
-                if hover {
+                if hover && !act_on_press {
                     return Interaction::EVENT_HANDLED
                         | Interaction::RELEASED
                         | Interaction::CLICKED;
@@ -175,7 +188,7 @@ impl InteractiveState {
                 return Interaction::empty();
             }
 
-            if self.contains(InteractiveState::HOVER) {
+            if self.hover() {
                 self.remove(InteractiveState::HOVER);
                 return Interaction::LEFT | Interaction::EVENT_HANDLED;
             }

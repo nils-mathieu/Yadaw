@@ -1,14 +1,69 @@
 use {
-    crate::{element::Element, private::WindowInner},
+    crate::{
+        element::Element,
+        event::Event,
+        private::{WindowInner, WindowProxyInner},
+    },
     std::{
         fmt::Debug,
         rc::{Rc, Weak},
+        sync::Arc,
     },
     vello::{
         kurbo::{Point, Size},
         peniko, wgpu,
     },
+    winit::event_loop::EventLoopProxy,
 };
+
+/// Allows accessing a window from any thread (rather than only the UI thread).
+#[derive(Clone)]
+pub struct WindowProxy {
+    inner: std::sync::Weak<WindowProxyInner>,
+    event_loop_proxy: EventLoopProxy,
+}
+
+impl WindowProxy {
+    /// Returns the [`WindowProxyInner`].
+    #[track_caller]
+    fn inner(&self) -> Arc<WindowProxyInner> {
+        self.inner
+            .upgrade()
+            .expect("Attempted to use a `WindowProxy` after the window has been closed")
+    }
+
+    /// Sends an event to the window's UI tree.
+    #[track_caller]
+    pub fn send_event(&self, event: impl Send + Event) {
+        self.send_event_boxed(Box::new(event));
+    }
+
+    /// Sends an event to the window's UI tree.
+    #[track_caller]
+    pub fn send_event_boxed(&self, event: Box<dyn Send + Event>) {
+        self.inner().send_event(event);
+        self.event_loop_proxy.wake_up();
+    }
+
+    /// Requests the layout to be recomputed.
+    #[track_caller]
+    pub fn request_relayout(&self) {
+        self.inner().request_relayout();
+    }
+
+    /// Requests the window to be redrawn.
+    #[track_caller]
+    pub fn request_redraw(&self) {
+        self.inner().winit_window().request_redraw();
+    }
+
+    /// Calls the provided closure with a reference to the concrete [`winit::window::Window`]
+    /// object.
+    #[track_caller]
+    pub fn with_winit_window<R>(&self, f: impl FnOnce(&dyn winit::window::Window) -> R) -> R {
+        f(self.inner().winit_window())
+    }
+}
 
 /// A window that is managed by the application.
 ///
@@ -43,7 +98,7 @@ impl Window {
     #[track_caller]
     pub fn close(&self) {
         let inner = self.inner();
-        let id = inner.winit_window().id();
+        let id = inner.proxy().winit_window().id();
         inner.ctx().remove_window(id);
     }
 
@@ -51,7 +106,7 @@ impl Window {
     /// backing this window.
     #[track_caller]
     pub fn with_winit_window<R>(&self, f: impl FnOnce(&dyn winit::window::Window) -> R) -> R {
-        f(self.inner().winit_window())
+        f(self.inner().proxy().winit_window())
     }
 
     /// Sets the clear color of the window.
@@ -73,14 +128,14 @@ impl Window {
     /// Requests a redraw of the window.
     #[track_caller]
     pub fn request_redraw(&self) {
-        self.inner().winit_window().request_redraw();
+        self.inner().proxy().winit_window().request_redraw();
     }
 
     /// Requests the UI tree associated with the window to be re-built (and the window to be
     /// re-rendered).
     #[track_caller]
     pub fn request_relayout(&self) {
-        self.inner().request_relayout();
+        self.inner().proxy().request_relayout();
     }
 
     /// Sets the root element of the window as a boxed value.
@@ -113,6 +168,19 @@ impl Window {
     pub fn pointer_position(&self) -> Point {
         let pos = self.inner().last_pointer_position();
         Point::new(pos.x, pos.y)
+    }
+
+    /// Creates a [`WindowProxy`] for this window.
+    ///
+    /// The proxy can be used to send events to the window's UI tree from other threads.
+    #[track_caller]
+    pub fn make_proxy(&self) -> WindowProxy {
+        let inner = self.inner();
+
+        WindowProxy {
+            event_loop_proxy: inner.ctx().event_loop_proxy(),
+            inner: Arc::downgrade(inner.proxy()),
+        }
     }
 }
 

@@ -869,6 +869,7 @@ version = "0.0.0"
 dependencies = [
  "bitflags 2.8.0",
  "kui-macros",
+ "parking_lot",
  "parley",
  "pollster",
  "rustc-hash 2.1.0",
@@ -3040,7 +3041,9 @@ name = "yadaw"
 version = "0.0.0"
 dependencies = [
  "adevice",
+ "bitflags 2.8.0",
  "kui",
+ "parking_lot",
  "symphonia",
 ]
 

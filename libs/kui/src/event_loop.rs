@@ -214,6 +214,12 @@ impl AppState {
             None => el.set_control_flow(ControlFlow::Wait),
         }
     }
+
+    pub fn handle_proxy_wake_up(&mut self, el: &dyn ActiveEventLoop) {
+        self.ctx.set_active_event_loop(el, || {
+            self.ctx.dispatch_pending_events();
+        });
+    }
 }
 
 impl ApplicationHandler for EventHandler<'_> {
@@ -255,6 +261,12 @@ impl ApplicationHandler for EventHandler<'_> {
     fn about_to_wait(&mut self, event_loop: &dyn ActiveEventLoop) {
         if let Self::Initialized(state) = self {
             state.handle_about_to_wait(event_loop);
+        }
+    }
+
+    fn proxy_wake_up(&mut self, event_loop: &dyn ActiveEventLoop) {
+        if let Self::Initialized(state) = self {
+            state.handle_proxy_wake_up(event_loop);
         }
     }
 }

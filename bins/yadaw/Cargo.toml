@@ -7,4 +7,6 @@ publish = false
 kui.workspace = true
 adevice.workspace = true
 
+bitflags.workspace = true
+parking_lot.workspace = true
 symphonia = { git = "https://github.com/pdeljanov/Symphonia.git", branch = "dev-0.6" }
