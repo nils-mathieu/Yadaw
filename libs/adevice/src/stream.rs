@@ -10,11 +10,11 @@ pub union StreamData {
     pub interleaved: *mut u8,
 
     /// This pointer is initialized when the `channel_encoding` field of the stream configuration
-    /// is set to [`ChannelLayout::Separate`].
+    /// is set to [`ChannelLayout::Planar`].
     ///
     /// It references exactly `channel_count` pointers, each pointing to
     /// `frame_count * sample_size` bytes of memory.
-    pub separate: *const *mut u8,
+    pub planar: *const *mut u8,
 }
 
 /// The information passed from the audio device to the user-defined callback function responsible
@@ -43,7 +43,7 @@ impl StreamCallback {
     ///
     /// - The channel layout of the stream is [`Interleaved`](crate::ChannelLayout::Interleaved).
     #[inline]
-    pub unsafe fn get_interleaved_output_buffer<T>(&mut self, channel_count: u32) -> &mut [T] {
+    pub unsafe fn get_interleaved_output_buffer<T>(&mut self, channel_count: u16) -> &mut [T] {
         unsafe {
             let data: *mut T = self.data.interleaved.cast();
             std::slice::from_raw_parts_mut(data, self.frame_count * channel_count as usize)
@@ -64,14 +64,14 @@ impl StreamCallback {
     ///
     /// - The channel layout of the stream is [`Interleaved`](crate::ChannelLayout::Interleaved).
     #[inline]
-    pub unsafe fn get_interleaved_input_buffer<T>(&self, channel_count: u32) -> &[T] {
+    pub unsafe fn get_interleaved_input_buffer<T>(&self, channel_count: u16) -> &[T] {
         unsafe {
             let data: *const T = self.data.interleaved.cast();
             std::slice::from_raw_parts(data, self.frame_count * channel_count as usize)
         }
     }
 
-    /// Returns the output buffer as a slice of pointers to separate channels.
+    /// Returns the output buffer as a slice of pointers to planar channels.
     ///
     /// # Safety
     ///
@@ -83,20 +83,20 @@ impl StreamCallback {
     ///
     /// - The provided type `T` is the same as the sample format of the stream.
     ///
-    /// - The channel layout of the stream is [`Separate`](crate::ChannelLayout::Separate).
+    /// - The channel layout of the stream is [`Planar`](crate::ChannelLayout::Planar).
     ///
     /// # Remarks
     ///
     /// The pointers referenced by the returned slice are all of the length `frame_count`.
     #[inline]
-    pub unsafe fn get_separate_output_buffer<T>(&self, channel_count: u32) -> &[*mut T] {
+    pub unsafe fn get_planar_output_buffer<T>(&self, channel_count: u16) -> &[*mut T] {
         unsafe {
-            let data: *const *mut T = self.data.separate.cast();
+            let data: *const *mut T = self.data.planar.cast();
             std::slice::from_raw_parts(data, channel_count as usize)
         }
     }
 
-    /// Returns the input buffer as a slice of pointers to separate channels.
+    /// Returns the input buffer as a slice of pointers to planar channels.
     ///
     /// # Safety
     ///
@@ -108,15 +108,15 @@ impl StreamCallback {
     ///
     /// - The provided type `T` is the same as the sample format of the stream.
     ///
-    /// - The channel layout of the stream is [`Separate`](crate::ChannelLayout::Separate).
+    /// - The channel layout of the stream is [`Planar`](crate::ChannelLayout::Planar).
     ///
     /// # Remarks
     ///
     /// The pointers referenced by the returned slice are all of the length `frame_count`.
     #[inline]
-    pub unsafe fn get_separate_input_buffer<T>(&self, channel_count: u32) -> &[*const T] {
+    pub unsafe fn get_planar_input_buffer<T>(&self, channel_count: u16) -> &[*const T] {
         unsafe {
-            let data: *const *const T = self.data.separate.cast();
+            let data: *const *const T = self.data.planar.cast();
             std::slice::from_raw_parts(data, channel_count as usize)
         }
     }

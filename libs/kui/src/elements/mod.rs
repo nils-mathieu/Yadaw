@@ -5,6 +5,7 @@ pub mod anchor;
 pub mod button;
 pub mod div;
 pub mod flex;
+pub mod hooks;
 pub mod text;
 
 pub mod interactive;
@@ -49,4 +50,14 @@ pub fn flex_child() -> self::flex::FlexChild<()> {
 /// [`Button`]: self::button::Button
 pub fn button() -> self::button::Button<impl FnMut(), ()> {
     self::button::Button::new(|| (), ())
+}
+
+/// Creates a new [`HookEvents`] element.
+///
+/// [`HookEvents`]: self::hooks::HookEvent
+pub fn hook_events() -> self::hooks::HookEvent<
+    impl FnMut(&mut (), &crate::ElemContext, &dyn crate::event::Event) -> crate::event::EventResult,
+    (),
+> {
+    self::hooks::HookEvent::new(move |_, _, _| crate::event::EventResult::Continue, ())
 }

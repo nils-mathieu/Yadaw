@@ -99,8 +99,8 @@ bitflags! {
     pub struct ChannelLayouts: u8 {
         /// See [`ChannelLayout::Interleaved`].
         const INTERLEAVED = 1 << 0;
-        /// See [`ChannelLayout::Separate`].
-        const SEPARATE = 1 << 1;
+        /// See [`ChannelLayout::Planar`].
+        const PLANAR = 1 << 1;
     }
 }
 
@@ -108,7 +108,7 @@ impl From<ChannelLayout> for ChannelLayouts {
     fn from(value: ChannelLayout) -> Self {
         match value {
             ChannelLayout::Interleaved => ChannelLayouts::INTERLEAVED,
-            ChannelLayout::Separate => ChannelLayouts::SEPARATE,
+            ChannelLayout::Planar => ChannelLayouts::PLANAR,
         }
     }
 }
@@ -137,7 +137,7 @@ pub enum ChannelLayout {
     /// [L0, L1, L2, ...]
     /// [R0, R1, R2, ...]
     /// ```
-    Separate,
+    Planar,
 }
 
 /// The formats that are supported by a device.
@@ -232,7 +232,7 @@ impl DeviceFormats {
         #[rustfmt::skip]
         const FALLBACK_FORMATS: [Format; 12] = [Format::F32, Format::I24, Format::U24, Format::I16, Format::U16, Format::F64, Format::I32, Format::U32, Format::I64, Format::U64, Format::I8, Format::U8];
         #[rustfmt::skip]
-        const FALLBACK_CHANNEL_LAYOUTS: [ChannelLayout; 2] = [ChannelLayout::Separate, ChannelLayout::Interleaved];
+        const FALLBACK_CHANNEL_LAYOUTS: [ChannelLayout; 2] = [ChannelLayout::Planar, ChannelLayout::Interleaved];
 
         StreamConfig {
             share_mode,
