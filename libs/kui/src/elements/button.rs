@@ -24,7 +24,10 @@ pub struct Button<F, A: ?Sized> {
 
 impl<F, A> Button<F, A> {
     /// Creates a new [`Button`] with the provided callback and appearance.
-    pub fn new(on_click: F, appearance: A) -> Self {
+    pub fn new(on_click: F, appearance: A) -> Self
+    where
+        F: FnMut(&mut A, &ElemContext),
+    {
         Self {
             state: InteractiveState::empty(),
             on_click,
@@ -41,7 +44,7 @@ impl<F, A> Button<F, A> {
     /// Sets the function that will be called when this [`Button`] is clicked.
     pub fn on_click<F2>(self, on_click: F2) -> Button<F2, A>
     where
-        F2: FnMut(),
+        F2: FnMut(&mut A, &ElemContext),
     {
         Button {
             state: self.state,
@@ -62,7 +65,7 @@ impl<F, A> Button<F, A> {
 
 impl<F, A> Element for Button<F, A>
 where
-    F: FnMut(),
+    F: FnMut(&mut A, &ElemContext),
     A: InputAppearance,
 {
     #[inline]
@@ -116,7 +119,7 @@ where
             self.appearance.state_changed(elem_context, self.state);
         }
         if interaction.clicked() {
-            (self.on_click)();
+            (self.on_click)(&mut self.appearance, elem_context);
         }
         if interaction.event_handled() {
             return EventResult::Handled;

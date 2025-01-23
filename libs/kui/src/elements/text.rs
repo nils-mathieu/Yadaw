@@ -320,6 +320,12 @@ pub struct Text<S: ?Sized> {
 }
 
 impl<S> Text<S> {
+    /// Sets the text of this [`Text`] element.
+    pub fn set_text(&mut self, text: impl Into<String>) {
+        self.unstyled.text = text.into();
+        self.unstyled.add_dirt(TextDirtAmount::Text);
+    }
+
     /// The string that this [`Text`] element will render.
     pub fn text(mut self, text: impl Into<String>) -> Self {
         self.unstyled.text = text.into();

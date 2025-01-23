@@ -36,11 +36,48 @@ fn main() {
                     align_center;
 
                     kui::elements::button {
-                        child: make_button();
+                        child: kui::elements::interactive::make_appearance(
+                            elem! {
+                                kui::elements::div {
+                                    radius: 8px;
+                                    brush: "#ff0000";
+                                    padding_left: 16px;
+                                    padding_right: 16px;
+                                    padding_top: 8px;
+                                    padding_bottom: 8px;
+
+                                    kui::elements::label {
+                                        text: "Click me!";
+                                        inline: true;
+                                        brush: "#000";
+                                        font_stack: "Funnel Sans";
+                                    }
+                                }
+                            },
+                            |elem, cx, state| {
+                                let div = &mut elem.style;
+
+                                if state.active() {
+                                    div.brush = Some(Color::from_rgb8(200, 200, 200).into());
+                                } else if state.hover() {
+                                    div.brush = Some(Color::from_rgb8(225, 225, 225).into());
+                                } else {
+                                    div.brush = Some(Color::from_rgb8(255, 255, 255).into());
+                                }
+
+                                cx.window.request_redraw();
+                            },
+                        );
                         on_click: {
                             let audio_thread_controls = audio_thread_controls.clone();
-                            move || {
-                                audio_thread_controls.paused.fetch_xor(true, Ordering::Relaxed);
+                            move |elem, cx| {
+                                let paused = !audio_thread_controls.paused.fetch_xor(true, Ordering::Relaxed);
+                                elem.child.child.set_text(if paused {
+                                    "Play!"
+                                } else {
+                                    "Pause!"
+                                });
+                                cx.window.request_relayout();
                             }
                         };
                     }
@@ -59,41 +96,6 @@ fn main() {
 
         });
     });
-}
-
-fn make_button() -> impl kui::elements::interactive::InputAppearance {
-    kui::elements::interactive::make_appearance(
-        elem! {
-            kui::elements::div {
-                radius: 8px;
-                brush: "#ff0000";
-                padding_left: 16px;
-                padding_right: 16px;
-                padding_top: 8px;
-                padding_bottom: 8px;
-
-                kui::elements::label {
-                    text: "Click me!";
-                    inline: true;
-                    brush: "#000";
-                    font_stack: "Funnel Sans";
-                }
-            }
-        },
-        |elem, cx, state| {
-            let div = &mut elem.style;
-
-            if state.active() {
-                div.brush = Some(Color::from_rgb8(200, 200, 200).into());
-            } else if state.hover() {
-                div.brush = Some(Color::from_rgb8(225, 225, 225).into());
-            } else {
-                div.brush = Some(Color::from_rgb8(255, 255, 255).into());
-            }
-
-            cx.window.request_redraw();
-        },
-    )
 }
 
 /// Initializes the fonts for the application.

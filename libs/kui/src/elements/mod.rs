@@ -48,8 +48,8 @@ pub fn flex_child() -> self::flex::FlexChild<()> {
 /// Creates a new [`Button`] element.
 ///
 /// [`Button`]: self::button::Button
-pub fn button() -> self::button::Button<impl FnMut(), ()> {
-    self::button::Button::new(|| (), ())
+pub fn button() -> self::button::Button<impl FnMut(&mut (), &crate::ElemContext), ()> {
+    self::button::Button::new(|_, _| (), ())
 }
 
 /// Creates a new [`HookEvents`] element.

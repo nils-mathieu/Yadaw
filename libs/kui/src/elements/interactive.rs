@@ -201,9 +201,9 @@ impl InputAppearance for () {
 /// Instances of this type are created through [`make_appearance`].
 pub struct InputAppearanceFn<F, E: ?Sized> {
     /// The function itself.
-    state_changed: F,
+    pub state_changed: F,
     /// The child element.
-    child: E,
+    pub child: E,
 }
 
 impl<F, E> Element for InputAppearanceFn<F, E>
