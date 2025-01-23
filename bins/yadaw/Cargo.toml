@@ -6,3 +6,5 @@ publish = false
 [dependencies]
 kui.workspace = true
 adevice.workspace = true
+
+symphonia = { git = "https://github.com/pdeljanov/Symphonia.git", branch = "dev-0.6" }

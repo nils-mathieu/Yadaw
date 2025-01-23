@@ -188,6 +188,10 @@ impl WindowAndSurface {
     pub fn render(&self, renderer: &mut Renderer, scene: &vello::Scene) {
         let size = self.size.get();
 
+        if size.width == 0 || size.height == 0 {
+            return;
+        }
+
         if self.surface_dirty.replace(false) {
             self.surface
                 .configure(&renderer.device, &wgpu::SurfaceConfiguration {
