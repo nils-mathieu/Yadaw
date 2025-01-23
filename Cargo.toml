@@ -5,3 +5,6 @@ resolver = "2"
 
 [workspace.dependencies]
 kui = { path = "libs/kui" }
+adevice = { path = "libs/adevice" }
+
+bitflags = "2"

@@ -230,7 +230,7 @@ impl UnstyledText {
                     } else {
                         Some(self.container_width)
                     };
-                    self.layout.align(container_width, self.align);
+                    self.layout.align(container_width, self.align, false);
                 }
 
                 self.dirt = TextDirtAmount::Clean;

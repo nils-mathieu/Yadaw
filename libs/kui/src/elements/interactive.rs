@@ -92,26 +92,31 @@ bitflags! {
 
 impl InteractiveState {
     /// Whether the element is being hovered.
+    #[inline]
     pub fn hover(self) -> bool {
         self.contains(InteractiveState::HOVER)
     }
 
     /// Whether the element is active (being pressed).
+    #[inline]
     pub fn active(self) -> bool {
         self.contains(InteractiveState::ACTIVE)
     }
 
     /// Whether the element is disabled.
+    #[inline]
     pub fn disabled(self) -> bool {
         self.contains(InteractiveState::DISABLED)
     }
 
     /// Whether the element is focused.
+    #[inline]
     pub fn focused(self) -> bool {
         self.contains(InteractiveState::FOCUS)
     }
 
     /// Whether the element is visibly focused.
+    #[inline]
     pub fn focus_visible(self) -> bool {
         self.contains(InteractiveState::FOCUS_VISIBLE)
     }
