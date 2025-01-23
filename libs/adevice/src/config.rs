@@ -270,6 +270,31 @@ impl DeviceFormats {
                 .unwrap(),
         }
     }
+
+    /// Returns whether the structure contains invalid fields (e.g. an empty set of formats).
+    pub(crate) fn validate(&self) -> bool {
+        if self.formats.is_empty() {
+            return false;
+        }
+
+        if self.channel_layouts.is_empty() {
+            return false;
+        }
+
+        if self.max_channel_count == 0 {
+            return false;
+        }
+
+        if self.frame_rates.is_empty() {
+            return false;
+        }
+
+        if self.max_buffer_size == 0 {
+            return false;
+        }
+
+        true
+    }
 }
 
 /// Represents the configuration of an audio stream.

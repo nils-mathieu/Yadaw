@@ -126,6 +126,10 @@ impl WasapiDevice {
                 return Ok(None);
             }
 
+            // TODO: I think I've seen a way to access the string without allocating when it's
+            // small enough. Let's use that when possible instead of allocating a temporary
+            // UTF-16 string.
+
             let utf16_ptr = PropVariantToStringAlloc(&val).map_err(|err| {
                 device_error("Extracted device property value is not a string", err)
             })?;

@@ -13,7 +13,7 @@ mod host_config;
 pub use self::host_config::*;
 
 /// The default host for the current platform.
-pub fn default_host(config: WasapiHostConfig) -> Result<Box<dyn Host>, BackendError> {
+pub fn get_host(config: WasapiHostConfig) -> Result<Box<dyn Host>, BackendError> {
     ensure_com_initialized()?;
     Ok(Box::new(self::host::WasapiHost::new(Rc::new(config))?))
 }

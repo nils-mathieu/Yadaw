@@ -19,12 +19,20 @@ pub trait Device {
 
     /// Returns the configuration of the device, when used as an output device.
     ///
-    /// If the device is not an output device, this function returns `None`.
+    /// If the device is not an output device, this function returns `None`. Additionally, rather
+    /// than returning an error like [`ShareModeNotSupported`], this function will return `None`
+    /// as well if the device does not support the requested share mode.
+    ///
+    /// [`ShareModeNotSupported`]: ShareMode::ShareModeNotSupported
     fn output_formats(&self, share: ShareMode) -> Result<Option<DeviceFormats>, Error>;
 
     /// Returns the configuration of the device, when sued as an input device.
     ///
-    /// If the device is not an input device, this function returns `None`.
+    /// If the device is not an input device, this function returns `None`. Additionally, rather
+    /// than returning an error like [`ShareModeNotSupported`], this function will return `None`
+    /// as well if the device does not support the requested share mode.
+    ///
+    /// [`ShareModeNotSupported`]: ShareMode::ShareModeNotSupported
     fn input_formats(&self, share: ShareMode) -> Result<Option<DeviceFormats>, Error>;
 
     /// Opens an output stream with the specified configuration.

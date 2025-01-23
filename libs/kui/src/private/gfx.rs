@@ -35,7 +35,7 @@ pub struct Renderer {
 impl Renderer {
     /// Creates a new [`Renderer`] along with a window.
     pub fn new_for_window(window: Box<dyn Window>) -> (Self, WindowAndSurface) {
-        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
             backends: wgpu::Backends::all(),
             ..Default::default()
         });

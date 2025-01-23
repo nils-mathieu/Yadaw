@@ -4,9 +4,10 @@ edition = "2024"
 publish = false
 
 [features]
-default = ["wasapi"]
+default = ["wasapi", "coreaudio"]
 
 wasapi = ["dep:windows"]
+coreaudio = ["dep:coreaudio-sys"]
 
 [dependencies]
 bitflags.workspace = true
@@ -26,3 +27,9 @@ features = [
     "Win32_System_Threading",
     "Win32_Security",
 ]
+
+[dependencies.coreaudio-sys]
+version = "0.2"
+optional = true
+default-features = false
+features = ["audio_unit", "audio_toolbox"]
