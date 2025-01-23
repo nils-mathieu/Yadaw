@@ -84,9 +84,9 @@ pub fn make_waveformatex(
     frame_rate: u32,
     waveformat: &mut WAVEFORMATEX,
 ) -> bool {
-    waveformat.wFormatTag = match format.to_little_endian() {
-        Format::U8Le | Format::I16Le | Format::I32Le | Format::I64Le => WAVE_FORMAT_PCM as u16,
-        Format::F32Le | Format::F64Le => WAVE_FORMAT_IEEE_FLOAT as u16,
+    waveformat.wFormatTag = match format {
+        Format::U8 | Format::I16 | Format::I32 | Format::I64 => WAVE_FORMAT_PCM as u16,
+        Format::F32 | Format::F64 => WAVE_FORMAT_IEEE_FLOAT as u16,
         _ => return false,
     };
 
@@ -112,16 +112,10 @@ pub fn make_waveformatextensible(
 ) -> bool {
     waveformat.Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE as u16;
 
-    waveformat.SubFormat = match format.to_little_endian() {
-        Format::U8Le | Format::I16Le | Format::I32Le | Format::I64Le => KSDATAFORMAT_SUBTYPE_PCM,
-        Format::F32Le | Format::F64Le => KSDATAFORMAT_SUBTYPE_IEEE_FLOAT,
+    waveformat.SubFormat = match format {
+        Format::U8 | Format::I16 | Format::I32 | Format::I64 => KSDATAFORMAT_SUBTYPE_PCM,
+        Format::F32 | Format::F64 => KSDATAFORMAT_SUBTYPE_IEEE_FLOAT,
         _ => return false,
-    };
-
-    if format.is_integer() {
-        WAVE_FORMAT_PCM as u16
-    } else {
-        return false;
     };
 
     let sample_size = format.size_in_bytes();
@@ -156,27 +150,27 @@ pub fn break_waveformat(waveformat: &WAVEFORMATEXTENSIBLE) -> Option<(u16, Forma
         waveformat.Format.wBitsPerSample,
         waveformat.Format.wFormatTag as u32,
     ) {
-        (8, WAVE_FORMAT_PCM) => Format::U8Le,
-        (16, WAVE_FORMAT_PCM) => Format::I16Le,
-        (32, WAVE_FORMAT_PCM) => Format::I32Le,
-        (64, WAVE_FORMAT_PCM) => Format::I64Le,
-        (32, WAVE_FORMAT_IEEE_FLOAT) => Format::F32Le,
-        (64, WAVE_FORMAT_IEEE_FLOAT) => Format::F64Le,
+        (8, WAVE_FORMAT_PCM) => Format::U8,
+        (16, WAVE_FORMAT_PCM) => Format::I16,
+        (32, WAVE_FORMAT_PCM) => Format::I32,
+        (64, WAVE_FORMAT_PCM) => Format::I64,
+        (32, WAVE_FORMAT_IEEE_FLOAT) => Format::F32,
+        (64, WAVE_FORMAT_IEEE_FLOAT) => Format::F64,
         (_, WAVE_FORMAT_EXTENSIBLE) if waveformat.Format.cbSize == EXPECTED_EXTENSIBLE_SIZE => {
             let subformat = waveformat.SubFormat;
 
             if subformat.to_u128() == KSDATAFORMAT_SUBTYPE_PCM.to_u128() {
                 match waveformat.Format.wBitsPerSample {
-                    8 => Format::U8Le,
-                    16 => Format::I16Le,
-                    32 => Format::I32Le,
-                    64 => Format::I64Le,
+                    8 => Format::U8,
+                    16 => Format::I16,
+                    32 => Format::I32,
+                    64 => Format::I64,
                     _ => return None,
                 }
             } else if subformat.to_u128() == KSDATAFORMAT_SUBTYPE_IEEE_FLOAT.to_u128() {
                 match waveformat.Format.wBitsPerSample {
-                    32 => Format::F32Le,
-                    64 => Format::F64Le,
+                    32 => Format::F32,
+                    64 => Format::F64,
                     _ => return None,
                 }
             } else {

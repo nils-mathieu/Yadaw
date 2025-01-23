@@ -1,6 +1,6 @@
 use {
     crate::{
-        BackendError, Error, Stream, StreamCallback, StreamConfig, StreamData,
+        BackendError, ChannelLayout, Error, Stream, StreamCallback, StreamConfig, StreamData,
         backends::wasapi::utility::{
             backend_error, device_error, frames_to_duration, guard, make_waveformatex,
             share_mode_to_wasapi,
@@ -51,6 +51,10 @@ impl WasapiStream {
         config: StreamConfig,
         callback: Box<dyn Send + FnMut(StreamCallback)>,
     ) -> Result<Self, Error> {
+        if config.channel_layout != ChannelLayout::Interleaved {
+            return Err(Error::UnsupportedConfiguration);
+        }
+
         //
         // Initialize the audio client with the format supplied by the user.
         //

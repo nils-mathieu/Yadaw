@@ -20,7 +20,7 @@ impl Default for WasapiHostConfig {
         #[rustfmt::skip]
         const TRIED_CHANNEL_COUNTS: [u16; 6] = [1, 2, 4, 6, 8, 10];
         #[rustfmt::skip]
-        const TRIED_FORMATS: [Format; 7] = [Format::F32Le, Format::F64Le, Format::U8Le, Format::I16Le, Format::I24Le, Format::I32Le, Format::I64Le];
+        const TRIED_FORMATS: [Format; 7] = [Format::F32, Format::F64, Format::U8, Format::I16, Format::I24, Format::I32, Format::I64];
         #[rustfmt::skip]
         const TRIED_FRAME_RATES: [u32; 7] = [8000, 16000, 44100, 48000, 88000, 96000, 192000];
 

@@ -4,108 +4,60 @@ bitflags::bitflags! {
     /// A set of sample formats supported by an audio device.
     #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
     pub struct Formats: u32 {
-        /// Little endian signed 8-bit integer format.
-        const I8_LE = 1 << 0;
-        /// Little endian unsigned 8-bit integer format.
-        const U8_LE = 1 << 1;
-        /// Little endian signed 16-bit integer format.
-        const I16_LE = 1 << 2;
-        /// Little endian unsigned 16-bit integer format.
-        const U16_LE = 1 << 3;
-        /// Little endian signed 24-bit integer format.
-        const I24_LE = 1 << 4;
-        /// Little endian unsigned 24-bit integer format.
-        const U24_LE = 1 << 5;
-        /// Little endian signed 32-bit integer format.
-        const I32_LE = 1 << 6;
-        /// Little endian unsigned 32-bit integer format.
-        const U32_LE = 1 << 7;
-        /// Little endian signed 64-bit integer format.
-        const I64_LE = 1 << 8;
-        /// Little endian unsigned 64-bit integer format.
-        const U64_LE = 1 << 9;
-        /// Little endian 32-bit floating point format.
-        const F32_LE = 1 << 10;
-        /// Little endian 64-bit floating point format.
-        const F64_LE = 1 << 11;
-        /// Big endian signed 8-bit integer format.
-        const I8_BE = 1 << 12;
-        /// Big endian unsigned 8-bit integer format.
-        const U8_BE = 1 << 13;
-        /// Big endian signed 16-bit integer format.
-        const I16_BE = 1 << 14;
-        /// Big endian unsigned 16-bit integer format.
-        const U16_BE = 1 << 15;
-        /// Big endian signed 24-bit integer format.
-        const I24_BE = 1 << 16;
-        /// Big endian unsigned 24-bit integer format.
-        const U24_BE = 1 << 17;
-        /// Big endian signed 32-bit integer format.
-        const I32_BE = 1 << 18;
-        /// Big endian unsigned 32-bit integer format.
-        const U32_BE = 1 << 19;
-        /// Big endian signed 64-bit integer format.
-        const I64_BE = 1 << 20;
-        /// Big endian unsigned 64-bit integer format.
-        const U64_BE = 1 << 21;
-        /// Big endian 32-bit floating point format.
-        const F32_BE = 1 << 22;
-        /// Big endian 64-bit floating point format.
-        const F64_BE = 1 << 23;
+        /// Signed 8-bit integer format.
+        const I8 = 1 << 0;
+        /// Unsigned 8-bit integer format.
+        const U8 = 1 << 1;
+        /// Signed 16-bit integer format.
+        const I16 = 1 << 2;
+        /// Unsigned 16-bit integer format.
+        const U16 = 1 << 3;
+        /// Signed 24-bit integer format.
+        const I24 = 1 << 4;
+        /// Unsigned 24-bit integer format.
+        const U24 = 1 << 5;
+        /// Signed 32-bit integer format.
+        const I32 = 1 << 6;
+        /// Unsigned 32-bit integer format.
+        const U32 = 1 << 7;
+        /// Signed 64-bit integer format.
+        const I64 = 1 << 8;
+        /// Unsigned 64-bit integer format.
+        const U64 = 1 << 9;
+        /// 32-bit floating point format.
+        const F32 = 1 << 10;
+        /// 64-bit floating point format.
+        const F64 = 1 << 11;
     }
 }
 
 /// The format that an audio device should be initialized with.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Format {
-    /// Little endian signed 8-bit integer format.
-    I8Le,
-    /// Little endian unsigned 8-bit integer format.
-    U8Le,
-    /// Little endian signed 16-bit integer format.
-    I16Le,
-    /// Little endian unsigned 16-bit integer format.
-    U16Le,
-    /// Little endian signed 24-bit integer format.
-    I24Le,
-    /// Little endian unsigned 24-bit integer format.
-    U24Le,
-    /// Little endian signed 32-bit integer format.
-    I32Le,
-    /// Little endian unsigned 32-bit integer format.
-    U32Le,
-    /// Little endian signed 64-bit integer format.
-    I64Le,
-    /// Little endian unsigned 64-bit integer format.
-    U64Le,
-    /// Little endian 32-bit floating point format.
-    F32Le,
-    /// Little endian 64-bit floating point format.
-    F64Le,
-    /// Big endian signed 8-bit integer format.
-    I8Be,
-    /// Big endian unsigned 8-bit integer format.
-    U8Be,
-    /// Big endian signed 16-bit integer format.
-    I16Be,
-    /// Big endian unsigned 16-bit integer format.
-    U16Be,
-    /// Big endian signed 24-bit integer format.
-    I24Be,
-    /// Big endian unsigned 24-bit integer format.
-    U24Be,
-    /// Big endian signed 32-bit integer format.
-    I32Be,
-    /// Big endian unsigned 32-bit integer format.
-    U32Be,
-    /// Big endian signed 64-bit integer format.
-    I64Be,
-    /// Big endian unsigned 64-bit integer format.
-    U64Be,
-    /// Big endian 32-bit floating point format.
-    F32Be,
-    /// Big endian 64-bit floating point format.
-    F64Be,
+    /// Signed 8-bit integer format.
+    I8,
+    /// Unsigned 8-bit integer format.
+    U8,
+    /// Signed 16-bit integer format.
+    I16,
+    /// Unsigned 16-bit integer format.
+    U16,
+    /// Signed 24-bit integer format.
+    I24,
+    /// Unsigned 24-bit integer format.
+    U24,
+    /// Signed 32-bit integer format.
+    I32,
+    /// Unsigned 32-bit integer format.
+    U32,
+    /// Signed 64-bit integer format.
+    I64,
+    /// Unsigned 64-bit integer format.
+    U64,
+    /// 32-bit floating point format.
+    F32,
+    /// 64-bit floating point format.
+    F64,
 }
 
 impl Format {
@@ -113,221 +65,11 @@ impl Format {
     #[rustfmt::skip]
     pub fn size_in_bytes(self) -> u32 {
         match self {
-            Format::I8Le
-            | Format::U8Le
-            | Format::I8Be
-            | Format::U8Be => 1,
-            Format::I16Le
-            | Format::U16Le
-            | Format::I16Be
-            | Format::U16Be => 2,
-            Format::I24Le
-            | Format::U24Le
-            | Format::I24Be
-            | Format::U24Be => 3,
-            Format::I32Le
-            | Format::U32Le
-            | Format::I32Be
-            | Format::U32Be
-            | Format::F32Le
-            | Format::F32Be => 4,
-            Format::I64Le
-            | Format::U64Le
-            | Format::I64Be
-            | Format::U64Be
-            | Format::F64Le
-            | Format::F64Be => 8,
-        }
-    }
-
-    /// Returns whether the samples encoded in this format are little endian.
-    pub fn is_little_endian(self) -> bool {
-        match self {
-            Format::I8Le
-            | Format::U8Le
-            | Format::I16Le
-            | Format::U16Le
-            | Format::I24Le
-            | Format::U24Le
-            | Format::I32Le
-            | Format::U32Le
-            | Format::I64Le
-            | Format::U64Le
-            | Format::F32Le
-            | Format::F64Le => true,
-            Format::I8Be
-            | Format::U8Be
-            | Format::I16Be
-            | Format::U16Be
-            | Format::I24Be
-            | Format::U24Be
-            | Format::I32Be
-            | Format::U32Be
-            | Format::I64Be
-            | Format::U64Be
-            | Format::F32Be
-            | Format::F64Be => false,
-        }
-    }
-
-    /// Returns whether the samples encoded in this format are big endian.
-    #[inline]
-    pub fn is_big_endian(self) -> bool {
-        !self.is_little_endian()
-    }
-
-    /// Returns whether the samples encoded in this format are in the native endian of the
-    /// compilation target.
-    #[inline]
-    pub fn is_native_endian(self) -> bool {
-        if cfg!(target_endian = "little") {
-            self.is_little_endian()
-        } else {
-            self.is_big_endian()
-        }
-    }
-
-    /// Converts this [`Sample`] variant to little endian.
-    ///
-    /// If the sample is already in little endian, this will return `self`. Otherwise, this will
-    /// return the equivalent sample in little endian.
-    pub fn to_little_endian(self) -> Self {
-        match self {
-            Format::I8Le
-            | Format::U8Le
-            | Format::I16Le
-            | Format::U16Le
-            | Format::I24Le
-            | Format::U24Le
-            | Format::I32Le
-            | Format::U32Le
-            | Format::I64Le
-            | Format::U64Le
-            | Format::F32Le
-            | Format::F64Le => self,
-            Format::I8Be => Format::I8Le,
-            Format::U8Be => Format::U8Le,
-            Format::I16Be => Format::I16Le,
-            Format::U16Be => Format::U16Le,
-            Format::I24Be => Format::I24Le,
-            Format::U24Be => Format::U24Le,
-            Format::I32Be => Format::I32Le,
-            Format::U32Be => Format::U32Le,
-            Format::I64Be => Format::I64Le,
-            Format::U64Be => Format::U64Le,
-            Format::F32Be => Format::F32Le,
-            Format::F64Be => Format::F64Le,
-        }
-    }
-
-    /// Converts this [`Sample`] variant to big endian.
-    ///
-    /// If the sample is already in big endian, this will return `self`. Otherwise, this will
-    /// return the equivalent sample in big endian.
-    pub fn to_big_endian(self) -> Self {
-        match self {
-            Format::I8Be
-            | Format::U8Be
-            | Format::I16Be
-            | Format::U16Be
-            | Format::I24Be
-            | Format::U24Be
-            | Format::I32Be
-            | Format::U32Be
-            | Format::I64Be
-            | Format::U64Be
-            | Format::F32Be
-            | Format::F64Be => self,
-            Format::I8Le => Format::I8Be,
-            Format::U8Le => Format::U8Be,
-            Format::I16Le => Format::I16Be,
-            Format::U16Le => Format::U16Be,
-            Format::I24Le => Format::I24Be,
-            Format::U24Le => Format::U24Be,
-            Format::I32Le => Format::I32Be,
-            Format::U32Le => Format::U32Be,
-            Format::I64Le => Format::I64Be,
-            Format::U64Le => Format::U64Be,
-            Format::F32Le => Format::F32Be,
-            Format::F64Le => Format::F64Be,
-        }
-    }
-
-    /// Whether the format is signed.
-    ///
-    /// Note that this function returns `true` for floating point formats.
-    pub fn is_signed(self) -> bool {
-        match self {
-            Format::I8Le
-            | Format::I16Le
-            | Format::I24Le
-            | Format::I32Le
-            | Format::I64Le
-            | Format::F32Le
-            | Format::F64Le
-            | Format::I8Be
-            | Format::I16Be
-            | Format::I24Be
-            | Format::I32Be
-            | Format::I64Be
-            | Format::F32Be
-            | Format::F64Be => true,
-            Format::U8Le
-            | Format::U16Le
-            | Format::U24Le
-            | Format::U32Le
-            | Format::U64Le
-            | Format::U8Be
-            | Format::U16Be
-            | Format::U24Be
-            | Format::U32Be
-            | Format::U64Be => false,
-        }
-    }
-
-    /// Returns whether the format is an integer format.
-    pub fn is_integer(self) -> bool {
-        match self {
-            Format::I8Le
-            | Format::U8Le
-            | Format::I16Le
-            | Format::U16Le
-            | Format::I24Le
-            | Format::U24Le
-            | Format::I32Le
-            | Format::U32Le
-            | Format::I64Le
-            | Format::U64Le
-            | Format::I8Be
-            | Format::U8Be
-            | Format::I16Be
-            | Format::U16Be
-            | Format::I24Be
-            | Format::U24Be
-            | Format::I32Be
-            | Format::U32Be
-            | Format::I64Be
-            | Format::U64Be => true,
-            Format::F32Le | Format::F64Le | Format::F32Be | Format::F64Be => false,
-        }
-    }
-
-    /// Returns whether the format is a floating point format.
-    #[inline]
-    pub fn is_floating_point(self) -> bool {
-        !self.is_integer()
-    }
-
-    /// Converts this [`Sample`] variant to the native endian of the compilation target.
-    ///
-    /// If the sample is already in the correct format, this will return `self`. Otherwise, this
-    /// will return the equivalent sample in the native endian format.
-    #[inline]
-    pub fn to_native_endian(self) -> Self {
-        if cfg!(target_endian = "little") {
-            self.to_little_endian()
-        } else {
-            self.to_big_endian()
+            Format::I8 | Format::U8 => 1,
+            Format::I16 | Format::U16 => 2,
+            Format::I24 | Format::U24 => 3,
+            Format::I32 | Format::U32 | Format::F32 => 4,
+            Format::I64 | Format::U64 | Format::F64 => 8,
         }
     }
 }
@@ -335,30 +77,18 @@ impl Format {
 impl From<Format> for Formats {
     fn from(value: Format) -> Self {
         match value {
-            Format::U8Le => Formats::U8_LE,
-            Format::I8Le => Formats::I8_LE,
-            Format::U16Le => Formats::U16_LE,
-            Format::I16Le => Formats::I16_LE,
-            Format::U24Le => Formats::U24_LE,
-            Format::I24Le => Formats::I24_LE,
-            Format::U32Le => Formats::U32_LE,
-            Format::I32Le => Formats::I32_LE,
-            Format::U64Le => Formats::U64_LE,
-            Format::I64Le => Formats::I64_LE,
-            Format::F32Le => Formats::F32_LE,
-            Format::F64Le => Formats::F64_LE,
-            Format::U8Be => Formats::U8_BE,
-            Format::I8Be => Formats::I8_BE,
-            Format::U16Be => Formats::U16_BE,
-            Format::I16Be => Formats::I16_BE,
-            Format::U24Be => Formats::U24_BE,
-            Format::I24Be => Formats::I24_BE,
-            Format::U32Be => Formats::U32_BE,
-            Format::I32Be => Formats::I32_BE,
-            Format::U64Be => Formats::U64_BE,
-            Format::I64Be => Formats::I64_BE,
-            Format::F32Be => Formats::F32_BE,
-            Format::F64Be => Formats::F64_BE,
+            Format::I8 => Formats::I8,
+            Format::U8 => Formats::U8,
+            Format::I16 => Formats::I16,
+            Format::U16 => Formats::U16,
+            Format::I24 => Formats::I24,
+            Format::U24 => Formats::U24,
+            Format::I32 => Formats::I32,
+            Format::U32 => Formats::U32,
+            Format::I64 => Formats::I64,
+            Format::U64 => Formats::U64,
+            Format::F32 => Formats::F32,
+            Format::F64 => Formats::F64,
         }
     }
 }
@@ -500,7 +230,7 @@ impl DeviceFormats {
         preferred_frame_rate: f64,
     ) -> StreamConfig {
         #[rustfmt::skip]
-        const FALLBACK_FORMATS: [Format; 24] = [Format::F32Le, Format::F32Be, Format::I16Le, Format::I16Be, Format::U16Le, Format::U16Be, Format::I24Le, Format::I24Be, Format::U24Le, Format::U24Be, Format::F64Le, Format::F64Be, Format::I32Le, Format::I32Be, Format::U32Le, Format::U32Be, Format::I64Le, Format::I64Be, Format::U64Le, Format::U64Be, Format::I8Le, Format::I8Be, Format::U8Le, Format::U8Be];
+        const FALLBACK_FORMATS: [Format; 12] = [Format::F32, Format::I24, Format::U24, Format::I16, Format::U16, Format::F64, Format::I32, Format::U32, Format::I64, Format::U64, Format::I8, Format::U8];
         #[rustfmt::skip]
         const FALLBACK_CHANNEL_LAYOUTS: [ChannelLayout; 2] = [ChannelLayout::Separate, ChannelLayout::Interleaved];
 
@@ -519,7 +249,7 @@ impl DeviceFormats {
                 preferred_buffer_size.clamp(self.min_buffer_size, self.max_buffer_size),
             ),
 
-            channel_encoding: if self.channel_layouts.contains(preferred_layout.into()) {
+            channel_layout: if self.channel_layouts.contains(preferred_layout.into()) {
                 preferred_layout
             } else {
                 *FALLBACK_CHANNEL_LAYOUTS
@@ -577,5 +307,5 @@ pub struct StreamConfig {
     /// requested value.
     pub buffer_size: Option<NonZero<u32>>,
     /// The layout used by the stream to encode individual channels of audio data.
-    pub channel_encoding: ChannelLayout,
+    pub channel_layout: ChannelLayout,
 }
