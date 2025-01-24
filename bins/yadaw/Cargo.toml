@@ -14,4 +14,4 @@ parking_lot.workspace = true
 git = "https://github.com/pdeljanov/Symphonia.git"
 branch = "dev-0.6"
 default-features = false
-features = ["ogg", "mp3", "wav", "flac", "id3v2"]
+features = ["ogg", "mp3", "wav", "flac", "id3v2", "vorbis", "pcm"]

@@ -59,7 +59,7 @@ impl self::audio_thread::one_shot_player::OneShot for SinePluck {
 
 /// The glorious entry point of the Yadaw application.
 fn main() {
-    let file = Arc::new(AudioFile::load("bins/yadaw/assets/sfx/welcome.mp3".into()).unwrap());
+    let file = Arc::new(AudioFile::load("bins/yadaw/assets/sfx/welcome.wav".into()).unwrap());
 
     kui::run(|ctx| {
         initialize_fonts(&ctx).unwrap_or_else(|err| panic!("Failed to register fonts: {err}"));

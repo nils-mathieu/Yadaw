@@ -1858,6 +1858,8 @@ dependencies = [
  "lazy_static",
  "symphonia-bundle-flac",
  "symphonia-bundle-mp3",
+ "symphonia-codec-pcm",
+ "symphonia-codec-vorbis",
  "symphonia-core",
  "symphonia-format-ogg",
  "symphonia-format-riff",
@@ -1882,6 +1884,25 @@ source = "git+https://github.com/pdeljanov/Symphonia.git?branch=dev-0.6#4720e993
 dependencies = [
  "lazy_static",
  "log",
+ "symphonia-core",
+]
+
+[[package]]
+name = "symphonia-codec-pcm"
+version = "0.5.4"
+source = "git+https://github.com/pdeljanov/Symphonia.git?branch=dev-0.6#4720e99334910a25a89596cf2cfa8fe01d7df4c2"
+dependencies = [
+ "log",
+ "symphonia-core",
+]
+
+[[package]]
+name = "symphonia-codec-vorbis"
+version = "0.5.4"
+source = "git+https://github.com/pdeljanov/Symphonia.git?branch=dev-0.6#4720e99334910a25a89596cf2cfa8fe01d7df4c2"
+dependencies = [
+ "log",
+ "symphonia-common",
  "symphonia-core",
 ]
 
