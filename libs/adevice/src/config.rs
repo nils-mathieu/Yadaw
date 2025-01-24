@@ -50,10 +50,6 @@ pub enum Format {
     I32,
     /// Unsigned 32-bit integer format.
     U32,
-    /// Signed 64-bit integer format.
-    I64,
-    /// Unsigned 64-bit integer format.
-    U64,
     /// 32-bit floating point format.
     F32,
     /// 64-bit floating point format.
@@ -69,7 +65,7 @@ impl Format {
             Format::I16 | Format::U16 => 2,
             Format::I24 | Format::U24 => 3,
             Format::I32 | Format::U32 | Format::F32 => 4,
-            Format::I64 | Format::U64 | Format::F64 => 8,
+            Format::F64 => 8,
         }
     }
 }
@@ -85,8 +81,6 @@ impl From<Format> for Formats {
             Format::U24 => Formats::U24,
             Format::I32 => Formats::I32,
             Format::U32 => Formats::U32,
-            Format::I64 => Formats::I64,
-            Format::U64 => Formats::U64,
             Format::F32 => Formats::F32,
             Format::F64 => Formats::F64,
         }
@@ -230,7 +224,7 @@ impl DeviceFormats {
         preferred_frame_rate: f64,
     ) -> StreamConfig {
         #[rustfmt::skip]
-        const FALLBACK_FORMATS: [Format; 12] = [Format::F32, Format::I24, Format::U24, Format::I16, Format::U16, Format::F64, Format::I32, Format::U32, Format::I64, Format::U64, Format::I8, Format::U8];
+        const FALLBACK_FORMATS: [Format; 10] = [Format::F32, Format::I24, Format::U24, Format::I16, Format::U16, Format::F64, Format::I32, Format::U32, Format::I8, Format::U8];
         #[rustfmt::skip]
         const FALLBACK_CHANNEL_LAYOUTS: [ChannelLayout; 2] = [ChannelLayout::Planar, ChannelLayout::Interleaved];
 

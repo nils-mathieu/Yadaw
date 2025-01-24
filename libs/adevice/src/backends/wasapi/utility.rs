@@ -85,7 +85,7 @@ pub fn make_waveformatex(
     waveformat: &mut WAVEFORMATEX,
 ) -> bool {
     waveformat.wFormatTag = match format {
-        Format::U8 | Format::I16 | Format::I32 | Format::I64 => WAVE_FORMAT_PCM as u16,
+        Format::U8 | Format::I16 | Format::I32 => WAVE_FORMAT_PCM as u16,
         Format::F32 | Format::F64 => WAVE_FORMAT_IEEE_FLOAT as u16,
         _ => return false,
     };
@@ -113,7 +113,7 @@ pub fn make_waveformatextensible(
     waveformat.Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE as u16;
 
     waveformat.SubFormat = match format {
-        Format::U8 | Format::I16 | Format::I32 | Format::I64 => KSDATAFORMAT_SUBTYPE_PCM,
+        Format::U8 | Format::I16 | Format::I32 => KSDATAFORMAT_SUBTYPE_PCM,
         Format::F32 | Format::F64 => KSDATAFORMAT_SUBTYPE_IEEE_FLOAT,
         _ => return false,
     };
@@ -153,7 +153,6 @@ pub fn break_waveformat(waveformat: &WAVEFORMATEXTENSIBLE) -> Option<(u16, Forma
         (8, WAVE_FORMAT_PCM) => Format::U8,
         (16, WAVE_FORMAT_PCM) => Format::I16,
         (32, WAVE_FORMAT_PCM) => Format::I32,
-        (64, WAVE_FORMAT_PCM) => Format::I64,
         (32, WAVE_FORMAT_IEEE_FLOAT) => Format::F32,
         (64, WAVE_FORMAT_IEEE_FLOAT) => Format::F64,
         (_, WAVE_FORMAT_EXTENSIBLE) if waveformat.Format.cbSize == EXPECTED_EXTENSIBLE_SIZE => {
@@ -164,7 +163,6 @@ pub fn break_waveformat(waveformat: &WAVEFORMATEXTENSIBLE) -> Option<(u16, Forma
                     8 => Format::U8,
                     16 => Format::I16,
                     32 => Format::I32,
-                    64 => Format::I64,
                     _ => return None,
                 }
             } else if subformat.to_u128() == KSDATAFORMAT_SUBTYPE_IEEE_FLOAT.to_u128() {

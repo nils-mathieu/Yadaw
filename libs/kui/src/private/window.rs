@@ -40,6 +40,7 @@ pub struct WindowProxyInner {
 impl WindowProxyInner {
     /// Sends an event to the window's UI tree.
     pub fn send_event(&self, event: Box<dyn Send + Event>) {
+        // FIXME: Use a lock-free queue here so that the audio thread do not risk waiting.
         self.pending_events.lock().push(event);
     }
 

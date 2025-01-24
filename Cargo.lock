@@ -1857,11 +1857,8 @@ source = "git+https://github.com/pdeljanov/Symphonia.git?branch=dev-0.6#4720e993
 dependencies = [
  "lazy_static",
  "symphonia-bundle-flac",
- "symphonia-codec-adpcm",
- "symphonia-codec-pcm",
- "symphonia-codec-vorbis",
+ "symphonia-bundle-mp3",
  "symphonia-core",
- "symphonia-format-mkv",
  "symphonia-format-ogg",
  "symphonia-format-riff",
  "symphonia-metadata",
@@ -1879,30 +1876,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "symphonia-codec-adpcm"
+name = "symphonia-bundle-mp3"
 version = "0.5.4"
 source = "git+https://github.com/pdeljanov/Symphonia.git?branch=dev-0.6#4720e99334910a25a89596cf2cfa8fe01d7df4c2"
 dependencies = [
+ "lazy_static",
  "log",
- "symphonia-core",
-]
-
-[[package]]
-name = "symphonia-codec-pcm"
-version = "0.5.4"
-source = "git+https://github.com/pdeljanov/Symphonia.git?branch=dev-0.6#4720e99334910a25a89596cf2cfa8fe01d7df4c2"
-dependencies = [
- "log",
- "symphonia-core",
-]
-
-[[package]]
-name = "symphonia-codec-vorbis"
-version = "0.5.4"
-source = "git+https://github.com/pdeljanov/Symphonia.git?branch=dev-0.6#4720e99334910a25a89596cf2cfa8fe01d7df4c2"
-dependencies = [
- "log",
- "symphonia-common",
  "symphonia-core",
 ]
 
@@ -1926,17 +1905,6 @@ dependencies = [
  "log",
  "num-complex",
  "smallvec",
-]
-
-[[package]]
-name = "symphonia-format-mkv"
-version = "0.5.4"
-source = "git+https://github.com/pdeljanov/Symphonia.git?branch=dev-0.6#4720e99334910a25a89596cf2cfa8fe01d7df4c2"
-dependencies = [
- "lazy_static",
- "log",
- "symphonia-common",
- "symphonia-core",
 ]
 
 [[package]]

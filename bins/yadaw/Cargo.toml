@@ -9,4 +9,9 @@ adevice.workspace = true
 
 bitflags.workspace = true
 parking_lot.workspace = true
-symphonia = { git = "https://github.com/pdeljanov/Symphonia.git", branch = "dev-0.6" }
+
+[dependencies.symphonia]
+git = "https://github.com/pdeljanov/Symphonia.git"
+branch = "dev-0.6"
+default-features = false
+features = ["ogg", "mp3", "wav", "flac", "id3v2"]
