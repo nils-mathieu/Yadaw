@@ -1,5 +1,5 @@
 [package]
-name = "adevice"
+name = "advice"
 edition = "2024"
 publish = false
 

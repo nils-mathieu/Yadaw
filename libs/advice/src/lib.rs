@@ -59,5 +59,5 @@ pub fn default_host() -> Result<Option<Box<dyn Host>>, BackendError> {
     #[cfg(all(feature = "coreaudio", target_os = "macos"))]
     return self::backends::coreaudio::get_host().map(Some);
 
-    panic!("No `adevice` audio backend available - check the enabled feature flags");
+    panic!("No `advice` audio backend available - check the enabled feature flags");
 }

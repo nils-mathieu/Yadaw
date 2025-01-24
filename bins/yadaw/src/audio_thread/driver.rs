@@ -1,29 +1,29 @@
 use {
     crate::audio_thread::{AudioBufferMut, AudioThread, AudioThreadControls},
-    adevice::{StreamCallback, StreamConfig},
+    advice::{StreamCallback, StreamConfig},
     std::sync::Arc,
 };
 
 /// Initializes the audio thread for the application.
 pub fn initialize_audio_thread(controls: Arc<AudioThreadControls>) {
-    let host = adevice::default_host()
+    let host = advice::default_host()
         .unwrap_or_else(|err| panic!("Failed to initialize the audio host: {err}"))
         .unwrap_or_else(|| panic!("No audio backend available"));
 
     let output_device = host
-        .default_output_device(adevice::RoleHint::Games)
+        .default_output_device(advice::RoleHint::Games)
         .unwrap_or_else(|err| panic!("Failed to get the default output device: {err}"))
         .unwrap_or_else(|| panic!("No default output device available"));
 
     let config = output_device
-        .output_formats(adevice::ShareMode::Share)
+        .output_formats(advice::ShareMode::Share)
         .unwrap_or_else(|err| panic!("Failed to get the available output formats: {err}"))
         .unwrap_or_else(|| panic!("No output formats available for the output device"))
         .to_stream_config(
-            adevice::ShareMode::Share,
+            advice::ShareMode::Share,
             2,
             &[],
-            adevice::ChannelLayout::Planar,
+            advice::ChannelLayout::Planar,
             256,
             44100.0,
         );
@@ -212,7 +212,7 @@ unsafe fn make_stream_handler(
     }
 
     unsafe {
-        use adevice::{ChannelLayout::*, Format::*};
+        use advice::{ChannelLayout::*, Format::*};
         match (config.channel_layout, config.format) {
             (Interleaved, F32) => make_stream_handler_interleaved::<f32>(controls, config),
             (Interleaved, I16) => make_stream_handler_interleaved::<i16>(controls, config),

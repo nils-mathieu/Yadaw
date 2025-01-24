@@ -5,7 +5,7 @@ publish = false
 
 [dependencies]
 kui.workspace = true
-adevice.workspace = true
+advice.workspace = true
 
 bitflags.workspace = true
 parking_lot.workspace = true

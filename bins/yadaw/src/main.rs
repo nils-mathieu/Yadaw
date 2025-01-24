@@ -73,6 +73,9 @@ fn main() {
         let audio_thread_controls = Arc::new(self::audio_thread::AudioThreadControls::new(
             wnd.make_proxy(),
         ));
+        audio_thread_controls
+            .one_shot
+            .play(PlayAudioFile::new(file.clone()));
         self::audio_thread::initialize_audio_thread(audio_thread_controls.clone());
 
         wnd.set_root_element(elem! {

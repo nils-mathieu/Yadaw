@@ -149,7 +149,7 @@ impl WasapiStream {
         };
 
         std::thread::Builder::new()
-            .name("adevice time-critical thread".into())
+            .name("advice-waspi-audio-rendering-thread".into())
             .spawn(move || thread_state.run())
             .map_err(|err| {
                 BackendError::new(format!("Failed to spawn high-priority thread: {err}"))

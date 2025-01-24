@@ -138,7 +138,7 @@ pub enum ChannelLayout {
 ///
 /// # Remarks
 ///
-/// [`adevice`] will attempt to represent the available formats in a way that models the actual
+/// [`advice`] will attempt to represent the available formats in a way that models the actual
 /// underlying device as closely as possible. However, because of the fundamental differences
 /// between audio APIs, some information may be lost or become inaccurate.
 ///

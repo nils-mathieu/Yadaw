@@ -6,8 +6,8 @@ fn main() {
 }
 
 /// Print host data.
-fn print_host_info() -> Result<(), adevice::Error> {
-    let Some(host) = adevice::default_host()? else {
+fn print_host_info() -> Result<(), advice::Error> {
+    let Some(host) = advice::default_host()? else {
         println!("No host found.");
         return Ok(());
     };
@@ -23,17 +23,17 @@ fn print_host_info() -> Result<(), adevice::Error> {
 }
 
 /// Prints information about a device.
-fn print_device_info(device: &dyn adevice::Device) -> Result<(), adevice::Error> {
+fn print_device_info(device: &dyn advice::Device) -> Result<(), advice::Error> {
     if let Some(name) = device.name()? {
         println!(" - {name}");
     } else {
         println!(" - <Unknown>");
     }
 
-    let shared_output_format = device.output_formats(adevice::ShareMode::Share)?;
-    let exclusive_output_format = device.output_formats(adevice::ShareMode::Exclusive)?;
-    let shared_input_format = device.input_formats(adevice::ShareMode::Share)?;
-    let exclusive_input_format = device.input_formats(adevice::ShareMode::Exclusive)?;
+    let shared_output_format = device.output_formats(advice::ShareMode::Share)?;
+    let exclusive_output_format = device.output_formats(advice::ShareMode::Exclusive)?;
+    let shared_input_format = device.input_formats(advice::ShareMode::Share)?;
+    let exclusive_input_format = device.input_formats(advice::ShareMode::Exclusive)?;
 
     if shared_output_format.is_some() || exclusive_output_format.is_some() {
         if shared_output_format == exclusive_input_format {
@@ -78,7 +78,7 @@ fn print_device_info(device: &dyn adevice::Device) -> Result<(), adevice::Error>
 
 /// Print the formats available for a device.
 #[rustfmt::skip]
-fn print_device_formats(formats: &adevice::DeviceFormats) {
+fn print_device_formats(formats: &advice::DeviceFormats) {
     println!("       - Max channel count: {}", formats.max_channel_count);
     println!("       - Sample formats: {:?}", formats.formats);
     println!("       - Frame rates: {:?}", formats.frame_rates);

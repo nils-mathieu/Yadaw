@@ -5,7 +5,7 @@ resolver = "2"
 
 [workspace.dependencies]
 kui = { path = "libs/kui" }
-adevice = { path = "libs/adevice" }
+advice = { path = "libs/advice" }
 
 bitflags = "2"
 parking_lot = "0.12"
