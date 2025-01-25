@@ -8,7 +8,7 @@ pub fn initialize_fonts(ctx: &kui::Ctx) -> std::io::Result<()> {
     const SUPPORTED_EXTENSIONS: &[&[u8]] = &[b"ttf"];
 
     ctx.with_resource_or_default(|res: &mut TextResource| {
-        for entry in std::fs::read_dir("bins/yadaw/assets/fonts")? {
+        for entry in std::fs::read_dir("assets/fonts")? {
             let entry = entry?;
 
             if !entry.file_type()?.is_file() {

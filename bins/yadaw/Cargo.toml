@@ -10,6 +10,13 @@ advice.workspace = true
 bitflags.workspace = true
 parking_lot.workspace = true
 
+serde = { version = "1", features = ["derive"] }
+serde-inline-default = "0.2"
+toml = { version = "0.8", default-features = false, features = ["parse"] }
+
+thiserror = "2"
+log = "0.4"
+
 [dependencies.symphonia]
 git = "https://github.com/pdeljanov/Symphonia.git"
 branch = "dev-0.6"

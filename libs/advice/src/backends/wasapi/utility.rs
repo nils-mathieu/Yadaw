@@ -28,13 +28,14 @@ pub fn backend_error(context: &str, err: windows::core::Error) -> BackendError {
 ///
 /// This function will automatically catch errors indicating that the device is not longer
 /// available and return an [`Error::DeviceNotAvailable`] instead.
-#[rustfmt::skip]
 pub fn device_error(context: &str, err: windows::core::Error) -> Error {
     match err.code() {
         AUDCLNT_E_DEVICE_INVALIDATED => Error::DeviceNotAvailable,
         AUDCLNT_E_DEVICE_IN_USE => Error::DeviceInUse,
-        AUDCLNT_E_EXCLUSIVE_MODE_NOT_ALLOWED | AUDCLNT_E_EXCLUSIVE_MODE_ONLY => Error::ShareModeNotSupported,
-        AUDCLNT_E_UNSUPPORTED_FORMAT | AUDCLNT_E_BUFFER_SIZE_ERROR => Error::UnsupportedConfiguration,
+        AUDCLNT_E_EXCLUSIVE_MODE_NOT_ALLOWED
+        | AUDCLNT_E_EXCLUSIVE_MODE_ONLY
+        | AUDCLNT_E_UNSUPPORTED_FORMAT
+        | AUDCLNT_E_BUFFER_SIZE_ERROR => Error::UnsupportedConfiguration,
         _ => Error::Backend(backend_error(context, err)),
     }
 }
