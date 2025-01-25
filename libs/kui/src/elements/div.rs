@@ -228,38 +228,38 @@ impl<E> Div<E> {
     }
 
     /// Sets the width of the [`Div`] element.
-    pub fn width(mut self, width: Length) -> Self {
-        self.style.width = Some(width);
+    pub fn width(mut self, width: impl Into<Option<Length>>) -> Self {
+        self.style.width = width.into();
         self
     }
 
     /// Sets the height of the [`Div`] element.
-    pub fn height(mut self, height: Length) -> Self {
-        self.style.height = Some(height);
+    pub fn height(mut self, height: impl Into<Option<Length>>) -> Self {
+        self.style.height = height.into();
         self
     }
 
     /// Sets the minimum width of the [`Div`] element.
-    pub fn min_width(mut self, min_width: Length) -> Self {
-        self.style.min_width = Some(min_width);
+    pub fn min_width(mut self, min_width: impl Into<Option<Length>>) -> Self {
+        self.style.min_width = min_width.into();
         self
     }
 
     /// Sets the minimum height of the [`Div`] element.
-    pub fn min_height(mut self, min_height: Length) -> Self {
-        self.style.min_height = Some(min_height);
+    pub fn min_height(mut self, min_height: impl Into<Option<Length>>) -> Self {
+        self.style.min_height = min_height.into();
         self
     }
 
     /// Sets the maximum width of the [`Div`] element.
-    pub fn max_width(mut self, max_width: Length) -> Self {
-        self.style.max_width = Some(max_width);
+    pub fn max_width(mut self, max_width: impl Into<Option<Length>>) -> Self {
+        self.style.max_width = max_width.into();
         self
     }
 
     /// Sets the maximum height of the [`Div`] element.
-    pub fn max_height(mut self, max_height: Length) -> Self {
-        self.style.max_height = Some(max_height);
+    pub fn max_height(mut self, max_height: impl Into<Option<Length>>) -> Self {
+        self.style.max_height = max_height.into();
         self
     }
 

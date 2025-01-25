@@ -4,7 +4,7 @@
 use {
     crate::{
         Ctx,
-        event::{PointerButton, PointerEnetered, PointerLeft, PointerMoved},
+        event::{KeyEvent, PointerButton, PointerEnetered, PointerLeft, PointerMoved},
         private::CtxInner,
     },
     std::rc::Rc,
@@ -189,6 +189,22 @@ impl AppState {
                         primary,
                         kind,
                     });
+                });
+            }
+            WindowEvent::KeyboardInput {
+                device_id,
+                event,
+                is_synthetic,
+            } => self.ctx.with_window(window_id, |window| {
+                window.dispatch_event(&KeyEvent {
+                    synthetic: is_synthetic,
+                    device_id,
+                    inner: event,
+                });
+            }),
+            WindowEvent::ModifiersChanged(modifiers) => {
+                self.ctx.with_window(window_id, |window| {
+                    window.notify_keyboard_modifiers_changed(modifiers.state());
                 });
             }
             _ => {}

@@ -3,6 +3,9 @@ use std::any::TypeId;
 mod pointer;
 pub use self::pointer::*;
 
+mod keyboard;
+pub use self::keyboard::*;
+
 /// The result of an event.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum EventResult {

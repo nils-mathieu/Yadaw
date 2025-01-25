@@ -13,7 +13,7 @@ use {
         kurbo::{Point, Size},
         peniko, wgpu,
     },
-    winit::event_loop::EventLoopProxy,
+    winit::{event_loop::EventLoopProxy, keyboard::ModifiersState, window::Cursor},
 };
 
 /// Allows accessing a window from any thread (rather than only the UI thread).
@@ -181,6 +181,30 @@ impl Window {
             event_loop_proxy: inner.ctx().event_loop_proxy(),
             inner: Arc::downgrade(inner.proxy()),
         }
+    }
+
+    /// Make the window visible.
+    #[track_caller]
+    pub fn show(&self) {
+        self.with_winit_window(|w| w.set_visible(true));
+    }
+
+    /// Make the window invisible.
+    #[track_caller]
+    pub fn hide(&self) {
+        self.with_winit_window(|w| w.set_visible(false));
+    }
+
+    /// Returns the current keyboard modifiers state.
+    #[track_caller]
+    pub fn keyboard_modifiers(&self) -> ModifiersState {
+        self.inner().keyboard_modifiers()
+    }
+
+    /// Sets the cursor icon for the window.
+    #[track_caller]
+    pub fn set_cursor(&self, cursor: impl Into<Cursor>) {
+        self.with_winit_window(|w| w.set_cursor(cursor.into()));
     }
 }
 

@@ -70,8 +70,10 @@ impl Element {
         let decls = self.decls.iter().map(Decl::to_builder_method);
 
         quote! {
-            #path ()
-                #(#decls)*
+            ::kui::IntoElement::into_element(
+                #path ()
+                    #(#decls)*
+            )
         }
     }
 }

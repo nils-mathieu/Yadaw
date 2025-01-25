@@ -182,11 +182,7 @@ impl CtxInner {
     //
 
     /// Creates a new window and returns its ID.
-    pub fn create_window(self: &Rc<Self>, mut window: WindowAttributes) -> Rc<WindowInner> {
-        // We only want to show the window once we have rendered a full frame for it.
-        let show_window = window.visible;
-        window.visible = false;
-
+    pub fn create_window(self: &Rc<Self>, window: WindowAttributes) -> Rc<WindowInner> {
         let window = self.with_active_event_loop(|el| {
             el.create_window(window)
                 .unwrap_or_else(|err| panic!("Failed to create new window: {err}"))
@@ -207,13 +203,6 @@ impl CtxInner {
         };
 
         let window_inner = unsafe { Rc::new(WindowInner::new(self.clone(), surface, window)) };
-
-        if show_window {
-            let mut scene = vello::Scene::new();
-            window_inner.draw_to_scene(&mut scene);
-            window_inner.render_scene(renderer.as_mut().unwrap(), &scene);
-            window_inner.proxy().winit_window().set_visible(true);
-        }
 
         windows.insert(id, window_inner.clone());
         window_inner

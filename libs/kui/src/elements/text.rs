@@ -159,25 +159,25 @@ enum TextDirtAmount {
 #[derive(Clone, Default)]
 struct UnstyledText {
     /// The text to render.
-    text: String,
+    pub text: String,
     /// Whether the label should attempt to wrap text.
-    wrap: bool,
+    pub wrap: bool,
     /// The alignment of the text.
-    align: Alignment,
+    pub align: Alignment,
     /// Whether the text should take the least amount of space possible vertically.
-    inline: bool,
+    pub inline: bool,
 
     /// The position of the text.
-    position: Point,
+    pub position: Point,
     /// The layout context of the last call to `.place`.
-    layout_context: LayoutContext,
+    pub layout_context: LayoutContext,
     /// The width for which the text is expected to be laid out.
-    container_width: f32,
+    pub container_width: f32,
 
     /// The amount of dirt the text has.
-    dirt: TextDirtAmount,
+    pub dirt: TextDirtAmount,
     /// The laid out text (if built).
-    layout: parley::Layout<peniko::Brush>,
+    pub layout: parley::Layout<peniko::Brush>,
 }
 
 impl UnstyledText {
@@ -322,8 +322,19 @@ pub struct Text<S: ?Sized> {
 impl<S> Text<S> {
     /// Sets the text of this [`Text`] element.
     pub fn set_text(&mut self, text: impl Into<String>) {
-        self.unstyled.text = text.into();
+        let text = text.into();
+        if text != self.unstyled.text {
+            self.unstyled.text = text;
+            self.unstyled.add_dirt(TextDirtAmount::Text);
+        }
+    }
+
+    /// Access the style of this [`Text`] element.
+    ///
+    /// This invalidates the text's layout.
+    pub fn style_mut(&mut self) -> &mut S {
         self.unstyled.add_dirt(TextDirtAmount::Text);
+        &mut self.style
     }
 
     /// The string that this [`Text`] element will render.
@@ -345,6 +356,30 @@ impl<S> Text<S> {
         self.unstyled.align = align;
         self.unstyled.add_dirt(TextDirtAmount::Align);
         self
+    }
+
+    /// Aligns the [`Text`] element to the start.
+    #[inline]
+    pub fn align_start(self) -> Self {
+        self.align(Alignment::Start)
+    }
+
+    /// Aligns the [`Text`] element to the middle.
+    #[inline]
+    pub fn align_middle(self) -> Self {
+        self.align(Alignment::Middle)
+    }
+
+    /// Aligns the [`Text`] element to the end.
+    #[inline]
+    pub fn align_end(self) -> Self {
+        self.align(Alignment::End)
+    }
+
+    /// Justifies the [`Text`] element.
+    #[inline]
+    pub fn align_justified(self) -> Self {
+        self.align(Alignment::Justified)
     }
 
     /// Whether the [`Text`] element should take the least amount of space possible vertically.

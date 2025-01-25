@@ -7,8 +7,12 @@ pub mod div;
 pub mod flex;
 pub mod hooks;
 pub mod text;
+pub mod text_input;
 
+pub mod appearance;
 pub mod interactive;
+
+pub use self::appearance::make_appearance;
 
 /// Creates a new [`Div`] element.
 ///
@@ -48,8 +52,8 @@ pub fn flex_child() -> self::flex::FlexChild<()> {
 /// Creates a new [`Button`] element.
 ///
 /// [`Button`]: self::button::Button
-pub fn button() -> self::button::Button<(), ()> {
-    self::button::Button::new((), ())
+pub fn button() -> self::button::Button<()> {
+    self::button::Button::new(())
 }
 
 /// Creates a new [`HookEvents`] element.
@@ -57,4 +61,11 @@ pub fn button() -> self::button::Button<(), ()> {
 /// [`HookEvents`]: self::hooks::HookEvent
 pub fn hook_events() -> self::hooks::HookEvent<(), ()> {
     self::hooks::HookEvent::new((), ())
+}
+
+/// Creates a new [`TextInput`] element.
+///
+/// [`TextInput`]: self::text_input::TextInput
+pub fn text_input() -> self::text_input::TextInput<()> {
+    self::text_input::TextInput::default()
 }

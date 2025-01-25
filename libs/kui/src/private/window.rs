@@ -21,6 +21,7 @@ use {
     },
     winit::{
         dpi::{PhysicalPosition, PhysicalSize},
+        keyboard::ModifiersState,
         window::Window as WinitWindow,
     },
 };
@@ -72,6 +73,8 @@ pub struct WindowInner {
     scale_factor: Cell<f64>,
     /// The last reported position of the pointer.
     last_pointer_position: Cell<PhysicalPosition<f64>>,
+    /// The state of the keyboard modifiers for the window.
+    keyboard_modifiers: Cell<ModifiersState>,
 
     /// The pending events that need to be dispatched to the window.
     proxy: Arc<WindowProxyInner>,
@@ -96,6 +99,7 @@ impl WindowInner {
             root_element: Cell::new(Box::new(())),
             scale_factor: Cell::new(scale_factor),
             last_pointer_position: Cell::new(PhysicalPosition::new(f64::INFINITY, f64::INFINITY)),
+            keyboard_modifiers: Cell::new(ModifiersState::empty()),
             proxy: Arc::new(WindowProxyInner {
                 pending_events: Mutex::new(Vec::new()),
                 recompute_layout: AtomicBool::new(false),
@@ -227,6 +231,18 @@ impl WindowInner {
     pub fn notify_scale_factor_changed(&self, scale_factor: f64) {
         self.scale_factor.set(scale_factor);
         self.proxy.recompute_layout.store(true, Ordering::Release);
+    }
+
+    /// Notifies the window that the keyboard modifiers have changed.
+    #[inline]
+    pub fn notify_keyboard_modifiers_changed(&self, modifiers: ModifiersState) {
+        self.keyboard_modifiers.set(modifiers);
+    }
+
+    /// Returns the keyboard modifiers for the window.
+    #[inline]
+    pub fn keyboard_modifiers(&self) -> ModifiersState {
+        self.keyboard_modifiers.get()
     }
 
     /// Returns a reference to the context that owns this window.

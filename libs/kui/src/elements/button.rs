@@ -1,61 +1,35 @@
 use {
-    super::interactive::{InputAppearance, InteractiveState},
+    super::interactive::InteractiveState,
     crate::{
         ElemContext, Element, LayoutContext, SizeHint,
+        elements::appearance::Appearance,
         event::{Event, EventResult},
     },
     vello::{
         Scene,
         kurbo::{Point, Size},
     },
-    winit::window::CursorIcon,
 };
-
-/// Describes how to answer "on click" events.
-pub trait OnClick<A: ?Sized> {
-    /// Called when the button is clicked.
-    fn on_click(&mut self, appearance: &mut A, elem_context: &ElemContext);
-}
-
-impl<A: ?Sized> OnClick<A> for () {
-    fn on_click(&mut self, _appearance: &mut A, _elem_context: &ElemContext) {}
-}
-
-impl<A: ?Sized, F> OnClick<A> for F
-where
-    F: FnMut(&mut A, &ElemContext),
-{
-    #[inline]
-    fn on_click(&mut self, appearance: &mut A, elem_context: &ElemContext) {
-        self(appearance, elem_context);
-    }
-}
 
 /// Represents a button.
 #[derive(Clone, Debug, Default)]
-pub struct Button<F, A: ?Sized> {
+pub struct Button<A: ?Sized> {
     state: InteractiveState,
 
     /// Whether to act on press.
     ///
     /// Otherwise, the button will act on release.
     pub act_on_press: bool,
-    /// The callback to call when the button is clicked.
-    pub on_click: F,
     /// The appearance of the button.
     pub appearance: A,
 }
 
-impl<F, A> Button<F, A> {
+impl<A> Button<A> {
     /// Creates a new [`Button`] with the provided callback and appearance.
-    pub fn new(on_click: F, appearance: A) -> Self
-    where
-        F: OnClick<A>,
-    {
+    pub fn new(appearance: A) -> Self {
         Self {
             act_on_press: false,
             state: InteractiveState::empty(),
-            on_click,
             appearance,
         }
     }
@@ -66,25 +40,11 @@ impl<F, A> Button<F, A> {
         self
     }
 
-    /// Sets the function that will be called when this [`Button`] is clicked.
-    pub fn on_click<F2>(self, on_click: F2) -> Button<F2, A>
-    where
-        F2: FnMut(&mut A, &ElemContext),
-    {
-        Button {
-            act_on_press: self.act_on_press,
-            state: self.state,
-            on_click,
-            appearance: self.appearance,
-        }
-    }
-
     /// Sets the appearance of the button.
-    pub fn child<A2>(self, appearance: A2) -> Button<F, A2> {
+    pub fn child<A2>(self, appearance: A2) -> Button<A2> {
         Button {
             act_on_press: self.act_on_press,
             state: self.state,
-            on_click: self.on_click,
             appearance,
         }
     }
@@ -96,10 +56,9 @@ impl<F, A> Button<F, A> {
     }
 }
 
-impl<F, A> Element for Button<F, A>
+impl<A> Element for Button<A>
 where
-    F: OnClick<A>,
-    A: InputAppearance,
+    A: Appearance<()>,
 {
     #[inline]
     fn size_hint(
@@ -136,27 +95,22 @@ where
 
     #[inline]
     fn event(&mut self, elem_context: &ElemContext, event: &dyn Event) -> EventResult {
+        self.state.remove_transient_states();
+
         let og_state = self.state;
-        let interaction =
-            self.state
-                .handle_interactions(self.act_on_press, &mut self.appearance, event);
-        if interaction.entered() {
-            elem_context
-                .window
-                .with_winit_window(|w| w.set_cursor(CursorIcon::Pointer.into()));
-        }
-        if interaction.left() {
-            elem_context
-                .window
-                .with_winit_window(|w| w.set_cursor(CursorIcon::Default.into()));
+        let mut event_result = self
+            .state
+            .handle_pointer_interactions(&mut |pt| self.appearance.hit_test(pt), event);
+        if (self.act_on_press && self.state.just_pressed())
+            || (!self.act_on_press && self.state.just_clicked())
+        {
+            self.state.insert(InteractiveState::VALUE_CHANGED);
+            event_result = EventResult::Handled;
         }
         if og_state != self.state {
-            self.appearance.state_changed(elem_context, self.state);
+            self.appearance.state_changed(elem_context, self.state, &());
         }
-        if interaction.clicked() {
-            self.on_click.on_click(&mut self.appearance, elem_context);
-        }
-        if interaction.event_handled() {
+        if event_result.is_handled() {
             return EventResult::Handled;
         }
         self.appearance.event(elem_context, event)
@@ -165,6 +119,6 @@ where
     #[inline]
     fn begin(&mut self, elem_context: &ElemContext) {
         self.appearance.begin(elem_context);
-        self.appearance.state_changed(elem_context, self.state);
+        self.appearance.state_changed(elem_context, self.state, &());
     }
 }

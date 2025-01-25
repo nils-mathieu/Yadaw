@@ -190,3 +190,21 @@ pub trait Element {
 }
 
 impl Element for () {}
+
+/// Types that can be turned into an [`Element`].
+pub trait IntoElement {
+    /// The output element type.
+    type Element: Element;
+
+    /// Converts the type into an element.
+    fn into_element(self) -> Self::Element;
+}
+
+impl<E: Element> IntoElement for E {
+    type Element = E;
+
+    #[inline(always)]
+    fn into_element(self) -> Self::Element {
+        self
+    }
+}

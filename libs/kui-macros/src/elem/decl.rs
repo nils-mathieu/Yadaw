@@ -65,7 +65,7 @@ impl DeclKind {
                 }
                 _ => Self::Prop,
             },
-            Some(TokenTree::Group(g)) if g.delimiter() == Delimiter::Parenthesis => Self::Child,
+            Some(TokenTree::Group(g)) if g.delimiter() == Delimiter::Brace => Self::Child,
             _ => Self::Prop,
         }
     }
