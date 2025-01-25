@@ -287,6 +287,10 @@ impl DeviceFormats {
             return false;
         }
 
+        if self.min_buffer_size > self.max_buffer_size {
+            return false;
+        }
+
         true
     }
 }

@@ -24,25 +24,25 @@ bitflags! {
         ///
         /// When "act on press" is enabled, this will be the moment where the callback of a
         /// button is called.
-        const JUST_PRESSED = 1 << 6;
+        const JUST_PRESSED = 1 << 5;
         /// The element was just released.
-        const JUST_RELEASED = 1 << 7;
+        const JUST_RELEASED = 1 << 6;
         /// The element was clicked.
         ///
         /// When "act on release" is enabled, this will be the moment where the callback of a
         /// button is called.
-        const JUST_CLICKED = 1 << 8;
+        const JUST_CLICKED = 1 << 7;
         /// The pointer entered the element.
-        const JUST_ENTERED = 1 << 9;
+        const JUST_ENTERED = 1 << 8;
         /// The pointer left the element.
-        const JUST_LEFT = 1 << 10;
+        const JUST_LEFT = 1 << 9;
         /// Whether the element is just focused.
-        const JUST_FOCUSED = 1 << 11;
+        const JUST_FOCUSED = 1 << 10;
         /// Whether the element is just unfocused.
-        const JUST_UNFOCUSED = 1 << 12;
+        const JUST_UNFOCUSED = 1 << 11;
 
         /// The value of the element changed.
-        const VALUE_CHANGED = 1 << 11;
+        const VALUE_CHANGED = 1 << 12;
     }
 }
 
@@ -193,12 +193,12 @@ impl InteractiveState {
                 }
             } else if self.active() {
                 self.remove(InteractiveState::ACTIVE);
+                self.insert(InteractiveState::JUST_RELEASED);
 
                 if hover {
-                    self.insert(InteractiveState::JUST_RELEASED | InteractiveState::JUST_CLICKED);
+                    self.insert(InteractiveState::JUST_CLICKED);
                     return EventResult::Handled;
                 } else {
-                    self.insert(InteractiveState::JUST_RELEASED);
                     return EventResult::Continue;
                 }
             }

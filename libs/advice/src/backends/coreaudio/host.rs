@@ -106,17 +106,17 @@ impl Host for CoreAudioHost {
         Ok(self
             .enumerate_device_ids()?
             .into_iter()
-            .map(|id| Box::new(CoreAudioDevice::new(id)) as Box<dyn Device>)
+            .map(|id| Box::new(CoreAudioDevice::new(id, false)) as Box<dyn Device>)
             .collect())
     }
 
     fn default_input_device(&self, _: RoleHint) -> Result<Option<Box<dyn Device>>, BackendError> {
         self.get_default_device(kAudioHardwarePropertyDefaultInputDevice)
-            .map(|id| Some(Box::new(CoreAudioDevice::new(id)) as Box<dyn Device>))
+            .map(|id| Some(Box::new(CoreAudioDevice::new(id, false)) as Box<dyn Device>))
     }
 
     fn default_output_device(&self, _: RoleHint) -> Result<Option<Box<dyn Device>>, BackendError> {
         self.get_default_device(kAudioHardwarePropertyDefaultOutputDevice)
-            .map(|id| Some(Box::new(CoreAudioDevice::new(id)) as Box<dyn Device>))
+            .map(|id| Some(Box::new(CoreAudioDevice::new(id, true)) as Box<dyn Device>))
     }
 }

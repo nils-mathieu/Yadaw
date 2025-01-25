@@ -31,8 +31,6 @@ pub enum Error {
     DeviceNotAvailable,
     /// The device is in use and cannot be accessed.
     DeviceInUse,
-    /// The requested [`ShareMode`] is not supported by the device.
-    ShareModeNotSupported,
 }
 
 impl std::fmt::Display for Error {
@@ -43,7 +41,6 @@ impl std::fmt::Display for Error {
             Error::UnsupportedConfiguration => f.pad("The provided stream configuration is not supported by the device"),
             Error::DeviceNotAvailable => f.pad("Device not (or no longer) available"),
             Error::DeviceInUse => f.pad("The device is in use and cannot be accessed"),
-            Error::ShareModeNotSupported => f.pad("The requested share mode is not supported by the device"),
         }
     }
 }
@@ -55,7 +52,6 @@ impl std::error::Error for Error {
             Error::UnsupportedConfiguration => None,
             Error::DeviceNotAvailable => None,
             Error::DeviceInUse => None,
-            Error::ShareModeNotSupported => None,
         }
     }
 }

@@ -58,6 +58,7 @@ where
 
         elem! {
             button {
+                act_on_press: self.act_on_press;
                 child: make_appearance(
                     elem! {
                         div {

@@ -3,8 +3,10 @@ use {
     crate::{BackendError, Host},
 };
 
+mod audio_unit;
 mod device;
 mod host;
+mod stream;
 mod utility;
 
 /// Returns the host implementation for CoreAudio.

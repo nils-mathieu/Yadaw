@@ -90,7 +90,7 @@ where
                         if state.just_focused() {
                             elem.style.border_brush = Some(Color::from_rgb8(0xff, 0xff, 0xff).into());
                         }
-                        if state.just_released() {
+                        if state.just_unfocused() {
                             elem.style.border_brush = Some(Color::from_rgb8(0x55, 0x55, 0x55).into());
                         }
                     }

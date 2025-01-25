@@ -1,31 +1,120 @@
 use {
-    super::utility::{device_error, extract_cfstring},
+    super::{
+        stream::CoreAudioOutputStream,
+        utility::{device_error, extract_cfstring},
+    },
     crate::{
-        BackendError, ChannelLayouts, Device, DeviceFormats, Error, ShareMode, Stream,
-        StreamCallback, StreamConfig, backends::coreaudio::utility::guard,
+        ChannelLayouts, Device, DeviceFormats, Error, ShareMode, Stream, StreamCallback,
+        StreamConfig, backends::coreaudio::utility::guard,
     },
     coreaudio_sys::{
-        AudioBufferList, AudioDeviceID, AudioObjectGetPropertyData, AudioObjectGetPropertyDataSize,
+        AudioDeviceID, AudioObjectGetPropertyData, AudioObjectGetPropertyDataSize,
         AudioObjectPropertyAddress, AudioObjectPropertyScope, AudioObjectPropertySelector,
-        AudioValueRange, CFRelease, CFStringRef, kAudioDevicePropertyAvailableNominalSampleRates,
-        kAudioDevicePropertyDeviceNameCFString, kAudioDevicePropertyStreamConfiguration,
-        kAudioObjectPropertyElementMain, kAudioObjectPropertyElementMaster,
+        AudioStreamBasicDescription, AudioValueRange, CFRelease, CFStringRef,
+        kAudioDevicePropertyBufferFrameSizeRange, kAudioDevicePropertyDeviceNameCFString,
+        kAudioDevicePropertyStreamFormats, kAudioObjectPropertyElementMain,
         kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyScopeInput,
         kAudioObjectPropertyScopeOutput, noErr,
     },
-    std::alloc::Layout,
 };
 
 /// Represents a [`Device`] on the CoreAudio backend.
 pub struct CoreAudioDevice {
     /// The ID of the represented device.
     device_id: AudioDeviceID,
+    /// Whether the device is the default output device.
+    is_default_output: bool,
 }
 
 impl CoreAudioDevice {
     /// Creates a new [`CoreAudioDevice`] with the provided device ID.
-    pub fn new(id: AudioDeviceID) -> Self {
-        Self { device_id: id }
+    pub fn new(id: AudioDeviceID, is_default_output: bool) -> Self {
+        Self {
+            device_id: id,
+            is_default_output,
+        }
+    }
+
+    /// Bets the format of the stream for the device.
+    fn get_stream_formats(
+        &self,
+        scope: AudioObjectPropertyScope,
+    ) -> Result<Vec<AudioStreamBasicDescription>, Error> {
+        let property_address = AudioObjectPropertyAddress {
+            mSelector: kAudioDevicePropertyStreamFormats,
+            mScope: scope,
+            mElement: kAudioObjectPropertyElementMain,
+        };
+
+        let mut size = 0;
+
+        unsafe {
+            let ret = AudioObjectGetPropertyDataSize(
+                self.device_id,
+                &property_address,
+                0,
+                core::ptr::null(),
+                &mut size,
+            );
+
+            if ret != noErr as i32 {
+                return Err(device_error("Failed to read stream format size", ret));
+            }
+        }
+
+        let count = size as usize / std::mem::size_of::<AudioStreamBasicDescription>();
+        let mut buffer: Vec<AudioStreamBasicDescription> = Vec::with_capacity(count);
+
+        unsafe {
+            let ret = AudioObjectGetPropertyData(
+                self.device_id,
+                &property_address,
+                0,
+                core::ptr::null(),
+                &mut size,
+                buffer.as_mut_ptr() as *mut _ as _,
+            );
+
+            if ret != noErr as i32 {
+                return Err(device_error("Failed to read stream format", ret));
+            }
+
+            buffer.set_len(count);
+        }
+
+        Ok(buffer)
+    }
+
+    /// Gets the buffer size range for the device.
+    fn get_buffer_size_range(
+        &self,
+        scope: AudioObjectPropertyScope,
+    ) -> Result<AudioValueRange, Error> {
+        let property_address = AudioObjectPropertyAddress {
+            mSelector: kAudioDevicePropertyBufferFrameSizeRange,
+            mScope: scope,
+            mElement: kAudioObjectPropertyElementMain,
+        };
+
+        let mut value = AudioValueRange::default();
+
+        unsafe {
+            let mut size = std::mem::size_of::<AudioValueRange>() as u32;
+            let ret = AudioObjectGetPropertyData(
+                self.device_id,
+                &property_address,
+                0,
+                core::ptr::null(),
+                &mut size,
+                &mut value as *mut _ as _,
+            );
+
+            if ret != noErr as i32 {
+                return Err(device_error("Failed to read buffer size range", ret));
+            }
+        }
+
+        Ok(value)
     }
 
     /// Reads a property from the device as a string.
@@ -61,138 +150,6 @@ impl CoreAudioDevice {
         }
     }
 
-    /// Returns the stream configuration for this audio device.
-    fn get_channel_count(&self, scope: AudioObjectPropertyScope) -> Result<u16, Error> {
-        let property_address = AudioObjectPropertyAddress {
-            mSelector: kAudioDevicePropertyStreamConfiguration,
-            mScope: scope,
-            mElement: kAudioObjectPropertyElementMaster,
-        };
-
-        let mut data_size: u32 = 0;
-
-        unsafe {
-            let ret = AudioObjectGetPropertyDataSize(
-                self.device_id,
-                &property_address,
-                0,
-                core::ptr::null(),
-                &mut data_size,
-            );
-
-            if ret != noErr as i32 {
-                return Err(device_error("kAudioDevicePropertyStreamConfiguration", ret));
-            }
-        }
-
-        // NOTE: We can't use `Vec` here because the allocation needs to be properly
-        // aligned.
-        let (_guard, buf) = unsafe {
-            let layout = Layout::from_size_align_unchecked(
-                data_size as usize,
-                std::mem::align_of::<AudioBufferList>(),
-            );
-
-            let buf = std::alloc::alloc(layout);
-
-            if buf.is_null() {
-                std::alloc::handle_alloc_error(layout);
-            }
-
-            (
-                guard(move || std::alloc::dealloc(buf, layout)),
-                buf as *mut AudioBufferList,
-            )
-        };
-
-        unsafe {
-            let ret = AudioObjectGetPropertyData(
-                self.device_id,
-                &property_address,
-                0,
-                core::ptr::null(),
-                &mut data_size,
-                buf as *mut _ as *mut _,
-            );
-
-            if ret != noErr as i32 {
-                return Err(device_error("kAudioDevicePropertyStreamConfiguration", ret));
-            }
-        }
-
-        let buffers = unsafe {
-            let buffer_list = &*buf;
-            std::slice::from_raw_parts(
-                buffer_list.mBuffers.as_ptr(),
-                buffer_list.mNumberBuffers as usize,
-            )
-        };
-
-        match buffers {
-            [] => Ok(0),
-            [buf] => Ok(buf.mNumberChannels as u16),
-            _ => Err(Error::Backend(BackendError::new(
-                "Unsupported number of buffers",
-            ))),
-        }
-    }
-
-    /// Returns the list of available sample rates for the device.
-    fn get_nominal_sample_rates(
-        &self,
-        scope: AudioObjectPropertyScope,
-    ) -> Result<Vec<AudioValueRange>, Error> {
-        let property_address = AudioObjectPropertyAddress {
-            mSelector: kAudioDevicePropertyAvailableNominalSampleRates,
-            mScope: scope,
-            mElement: kAudioObjectPropertyElementMain,
-        };
-
-        let mut data_size: u32 = 0;
-
-        unsafe {
-            let ret = AudioObjectGetPropertyDataSize(
-                self.device_id,
-                &property_address,
-                0,
-                core::ptr::null(),
-                &mut data_size,
-            );
-
-            if ret != noErr as i32 {
-                return Err(device_error(
-                    "kAudioDevicePropertyAvailableNominalSampleRates",
-                    ret,
-                ));
-            }
-        }
-
-        let count = data_size as usize / std::mem::size_of::<AudioValueRange>();
-        let mut buffer: Vec<AudioValueRange> = Vec::with_capacity(count);
-
-        unsafe {
-            let ret = AudioObjectGetPropertyData(
-                self.device_id,
-                &property_address,
-                0,
-                core::ptr::null(),
-                &mut data_size,
-                buffer.as_mut_ptr() as *mut _,
-            );
-
-            if ret != noErr as i32 {
-                return Err(device_error(
-                    "kAudioDevicePropertyAvailableNominalSampleRates",
-                    ret,
-                ));
-            }
-
-            buffer.set_len(count);
-        }
-
-        Ok(buffer)
-    }
-
     /// Gets the formats available for the device.
     fn get_available_formats(
         &self,
@@ -201,14 +158,26 @@ impl CoreAudioDevice {
         let mut ret = DeviceFormats::DUMMY;
 
         ret.channel_layouts.insert(ChannelLayouts::INTERLEAVED);
-        ret.max_channel_count = self.get_channel_count(scope)?;
-        ret.frame_rates = self
-            .get_nominal_sample_rates(scope)?
-            .into_iter()
-            .map(|range| range.mMinimum)
-            .collect();
 
-        // WIP: Finish querying the data we need.
+        fn push_unique<T: PartialEq>(vec: &mut Vec<T>, item: T) {
+            if !vec.contains(&item) {
+                vec.push(item);
+            }
+        }
+
+        for (format, frame_rate, channels) in self
+            .get_stream_formats(scope)?
+            .iter()
+            .filter_map(super::utility::extract_basic_desc)
+        {
+            ret.formats.insert(format.into());
+            push_unique(&mut ret.frame_rates, frame_rate);
+            ret.max_channel_count = ret.max_channel_count.max(channels);
+        }
+
+        let buffer_sizes = self.get_buffer_size_range(scope)?;
+        ret.min_buffer_size = buffer_sizes.mMinimum as u32;
+        ret.max_buffer_size = buffer_sizes.mMaximum as u32;
 
         if ret.validate() {
             Ok(Some(ret))
@@ -245,14 +214,22 @@ impl Device for CoreAudioDevice {
         config: StreamConfig,
         callback: Box<dyn Send + FnMut(StreamCallback)>,
     ) -> Result<Box<dyn Stream>, Error> {
-        todo!();
+        Ok(Box::new(CoreAudioOutputStream::new(
+            if self.is_default_output {
+                None
+            } else {
+                Some(self.device_id)
+            },
+            &config,
+            callback,
+        )?))
     }
 
     fn open_input_stream(
         &self,
-        config: StreamConfig,
-        callback: Box<dyn Send + FnMut(StreamCallback)>,
+        _config: StreamConfig,
+        _callback: Box<dyn Send + FnMut(StreamCallback)>,
     ) -> Result<Box<dyn Stream>, Error> {
-        todo!();
+        unimplemented!();
     }
 }

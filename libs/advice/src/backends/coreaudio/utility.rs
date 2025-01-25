@@ -1,8 +1,9 @@
 use {
-    crate::{BackendError, Error},
+    crate::{BackendError, Error, Format},
     coreaudio_sys::{
-        CFRange, CFStringGetBytes, CFStringGetCStringPtr, CFStringGetLength, CFStringRef, OSStatus,
-        kCFStringEncodingUTF8,
+        AudioStreamBasicDescription, CFRange, CFStringGetBytes, CFStringGetCStringPtr,
+        CFStringGetLength, CFStringRef, OSStatus, kAudioFormatFlagIsFloat,
+        kAudioFormatFlagIsPacked, kAudioFormatLinearPCM, kCFStringEncodingUTF8,
     },
     std::{borrow::Cow, ffi::CStr, mem::ManuallyDrop},
 };
@@ -14,7 +15,10 @@ pub fn backend_error(ctx: &str, err: OSStatus) -> BackendError {
 
 /// Converts the provided `OSStatus` to a crate-specific error.
 pub fn device_error(ctx: &str, err: OSStatus) -> Error {
-    backend_error(ctx, err).into()
+    match err {
+        0xffffd58f => Error::UnsupportedConfiguration,
+        _ => backend_error(ctx, err).into(),
+    }
 }
 
 /// Extracts the content of a `CFStringRef` as a UTF-8 string.
@@ -83,4 +87,64 @@ pub fn guard(f: impl FnOnce()) -> impl Drop {
         }
     }
     Guard(ManuallyDrop::new(f))
+}
+
+/// Extracts and parses the content of a [`AudioStreamBasicDescription`] into:
+///
+/// - The format of the stream.
+///
+/// - The sample rate of the stream.
+///
+/// - The number of channels of the stream.
+pub fn extract_basic_desc(desc: &AudioStreamBasicDescription) -> Option<(Format, f64, u16)> {
+    if desc.mFormatID != kAudioFormatLinearPCM {
+        return None;
+    }
+    if desc.mFormatFlags & kAudioFormatFlagIsPacked == 0 {
+        return None;
+    }
+
+    let float = desc.mFormatFlags & kAudioFormatFlagIsFloat != 0;
+    let format = match (desc.mBitsPerChannel, float) {
+        (8, false) => Format::U8,
+        (16, false) => Format::I16,
+        (24, false) => Format::I24,
+        (32, false) => Format::I32,
+        (32, true) => Format::F32,
+        (64, true) => Format::F64,
+        _ => return None,
+    };
+
+    let channels: u16 = desc.mChannelsPerFrame.try_into().ok()?;
+
+    Some((format, desc.mSampleRate, channels))
+}
+
+/// Creates an audio stream basic description from the provided format, frame rate, and number of
+/// channels.
+pub fn make_basic_desc(
+    format: Format,
+    frame_rate: f64,
+    channels: u16,
+) -> AudioStreamBasicDescription {
+    let flags = match format {
+        Format::F32 | Format::F64 => kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked,
+        _ => kAudioFormatFlagIsPacked,
+    };
+
+    const FRAMES_PER_PACKET: u32 = 1;
+
+    let bytes_per_frame = format.size_in_bytes() * channels as u32;
+
+    AudioStreamBasicDescription {
+        mFormatID: kAudioFormatLinearPCM,
+        mFormatFlags: flags,
+        mSampleRate: frame_rate,
+        mBitsPerChannel: format.size_in_bytes() * 8,
+        mChannelsPerFrame: channels as u32,
+        mBytesPerFrame: bytes_per_frame,
+        mBytesPerPacket: bytes_per_frame * FRAMES_PER_PACKET,
+        mFramesPerPacket: FRAMES_PER_PACKET,
+        ..Default::default()
+    }
 }

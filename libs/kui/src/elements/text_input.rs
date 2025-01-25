@@ -8,6 +8,16 @@ use {
     winit::keyboard::{ModifiersState, NamedKey},
 };
 
+/// Removes the last word of the provided string.
+fn remove_last_word(s: &mut String) {
+    let idx = s
+        .trim_end_matches(|c: char| c.is_whitespace())
+        .trim_end_matches(|c: char| !c.is_whitespace())
+        .trim_end_matches(|c: char| c.is_whitespace())
+        .len();
+    s.truncate(idx);
+}
+
 /// An element that allows the user to input text.
 ///
 /// # Remarks
@@ -42,16 +52,26 @@ impl<A: ?Sized + Appearance<str>> TextInput<A> {
         }
 
         if event.logical_key == NamedKey::Backspace {
-            if modifiers.control_key() {
-                let idx = self
-                    .value
-                    .trim_end_matches(|c: char| c.is_whitespace())
-                    .trim_end_matches(|c: char| !c.is_whitespace())
-                    .trim_end_matches(|c: char| c.is_whitespace())
-                    .len();
-                self.value.truncate(idx);
+            if cfg!(target_os = "macos") {
+                if modifiers.control_key() {
+                    // Ignored.
+                    return false;
+                }
+
+                if modifiers.super_key() {
+                    self.value.clear();
+                } else if modifiers.alt_key() {
+                    remove_last_word(&mut self.value);
+                } else {
+                    self.value.pop();
+                }
             } else {
-                self.value.pop();
+                #[allow(clippy::collapsible_if)]
+                if modifiers.control_key() {
+                    remove_last_word(&mut self.value);
+                } else {
+                    self.value.pop();
+                }
             }
 
             self.state.insert(InteractiveState::VALUE_CHANGED);

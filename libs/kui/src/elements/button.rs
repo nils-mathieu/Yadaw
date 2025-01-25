@@ -98,14 +98,13 @@ where
         self.state.remove_transient_states();
 
         let og_state = self.state;
-        let mut event_result = self
+        let event_result = self
             .state
             .handle_pointer_interactions(&mut |pt| self.appearance.hit_test(pt), event);
         if (self.act_on_press && self.state.just_pressed())
             || (!self.act_on_press && self.state.just_clicked())
         {
             self.state.insert(InteractiveState::VALUE_CHANGED);
-            event_result = EventResult::Handled;
         }
         if og_state != self.state {
             self.appearance.state_changed(elem_context, self.state, &());
