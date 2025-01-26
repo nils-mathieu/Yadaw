@@ -9,10 +9,7 @@ pub mod hooks;
 pub mod text;
 pub mod text_input;
 
-pub mod appearance;
 pub mod interactive;
-
-pub use self::appearance::make_appearance;
 
 /// Creates a new [`Div`] element.
 ///

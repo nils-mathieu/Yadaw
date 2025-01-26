@@ -1,7 +1,7 @@
 use {
     crate::{
         ElemContext, Element, LayoutContext, SizeHint,
-        elements::{appearance::Appearance, interactive::InteractiveState},
+        elements::interactive::{Appearance, InteractiveState},
         event::{Event, EventResult, KeyEvent},
     },
     vello::kurbo::{Point, Size},

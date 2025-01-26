@@ -1,6 +1,6 @@
 use kui::{
     elem,
-    elements::{Length, button, div, label, make_appearance},
+    elements::{Length, button, div, interactive::make_appearance, label},
     peniko::Color,
     winit::window::CursorIcon,
 };

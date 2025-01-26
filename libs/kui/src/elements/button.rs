@@ -2,7 +2,7 @@ use {
     super::interactive::InteractiveState,
     crate::{
         ElemContext, Element, LayoutContext, SizeHint,
-        elements::appearance::Appearance,
+        elements::interactive::Appearance,
         event::{Event, EventResult},
     },
     vello::{

@@ -1,5 +1,80 @@
 use std::{mem::forget, ptr::NonNull};
 
+/// A trait for types that can be converted to another type while keeping their original meaning
+/// (or as close as possible) in the context of an audio sample.
+pub trait IntoSample<T> {
+    /// Converts the value into the target sample type.
+    fn into_sample(self) -> T;
+}
+
+impl<T> IntoSample<T> for T {
+    #[inline]
+    fn into_sample(self) -> T {
+        self
+    }
+}
+
+macro_rules! impl_IntoSample_signed_int_and_float{
+    ($($src:ty = $dst:ty),* $(,)?) => {
+        $(
+            impl IntoSample<$dst> for $src {
+                #[inline]
+                fn into_sample(self) -> $dst {
+                    const AMPLITUDE: $dst = -(<$src>::MIN as $dst);
+                    self as $dst / AMPLITUDE
+                }
+            }
+
+            impl IntoSample<$src> for $dst {
+                #[inline]
+                fn into_sample(self) -> $src {
+                    const AMPLITUDE: $dst = -(<$src>::MIN as $dst);
+                    (self * AMPLITUDE) as $src
+                }
+            }
+        )*
+    }
+}
+
+impl_IntoSample_signed_int_and_float!(
+    i8 = f32,
+    i16 = f32,
+    i32 = f32,
+    i8 = f64,
+    i16 = f64,
+    i32 = f64,
+);
+
+macro_rules! impl_IntoSample_unsigned_int_to_float {
+    ($(($src:ty, $src_signed:ty) = $dst:ty),* $(,)?) => {
+        $(
+            impl IntoSample<$dst> for $src {
+                #[inline]
+                fn into_sample(self) -> $dst {
+                    (self as $src_signed).wrapping_add(<$src_signed>::MIN).into_sample()
+                }
+            }
+
+            impl IntoSample<$src> for $dst {
+                #[inline]
+                fn into_sample(self) -> $src {
+                    let signed: $src_signed = self.into_sample();
+                    signed.wrapping_sub(<$src_signed>::MIN) as $src
+                }
+            }
+        )*
+    }
+}
+
+impl_IntoSample_unsigned_int_to_float!(
+    (u8, i8) = f32,
+    (u16, i16) = f32,
+    (u32, i32) = f32,
+    (u8, i8) = f64,
+    (u16, i16) = f64,
+    (u32, i32) = f64,
+);
+
 /// An exclusive reference to a collection of buffers that contain audio data.
 ///
 /// # Data layout
@@ -234,6 +309,58 @@ impl<T> AudioBufferRef<'_, T> {
             .iter()
             .map(move |&p| unsafe { std::slice::from_raw_parts(p, self.frame_count) })
     }
+
+    /// Converts & copies the audio data of this [`AudioBufferRef`] to the provided planar buffer.
+    ///
+    /// # Safety
+    ///
+    /// This function does not check whether the provided destination buffer is large enough to
+    /// hold the data, nor if it even has the correct number of channels.
+    ///
+    /// The caller is responsible for checking these conditions.
+    pub fn convert_to_planar_unchecked<U>(&self, mut dest: AudioBufferMut<U>)
+    where
+        T: Copy + IntoSample<U>,
+    {
+        let channel_count = self.channel_count();
+        let frame_count = dest.frame_count();
+
+        for c in 0..channel_count {
+            unsafe {
+                let src = self.channel_ptr(c);
+                let dst = dest.channel_mut_ptr(c);
+                for i in 0..frame_count {
+                    *dst.add(i) = src.add(i).read().into_sample();
+                }
+            }
+        }
+    }
+
+    /// Converts & copies the audio data of this [`AudioBufferRef`] to the provided interleaved
+    /// buffer.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that the provided buffer is large enough to hold the data.
+    /// Specifically, it must have at least `channel_count * frame_count` elements valid for
+    /// writing.
+    pub fn convert_to_interleaved_unchecked<U>(&self, target: *mut U)
+    where
+        T: Copy + IntoSample<U>,
+    {
+        let channel_count = self.channel_count();
+        let frame_count = self.frame_count();
+
+        for c in 0..channel_count {
+            unsafe {
+                let dst = target.add(c);
+                let src = self.channel_ptr(c);
+                for i in 0..frame_count {
+                    *dst.add(i * channel_count) = src.add(i).read().into_sample();
+                }
+            }
+        }
+    }
 }
 
 /// An owned audio buffer.
@@ -407,6 +534,64 @@ impl<T> AudioBufferOwned<T> {
 
         self.cap = new_cap;
         forget(guard);
+    }
+
+    /// Clears the audio buffer.
+    #[inline]
+    pub fn clear(&mut self) {
+        self.frame_count = 0;
+    }
+
+    /// Truncates the audio buffer to the provided number of frames.
+    ///
+    /// # Panics
+    ///
+    /// This function panics if the provided `new_len` is greater than the current frame count.
+    pub fn truncate(&mut self, new_len: usize) {
+        assert!(
+            new_len <= self.frame_count,
+            "The new length must be smaller than the current frame count",
+        );
+
+        let prev_len = self.frame_count;
+
+        // Start by removing the frames. If the drop implementation of a `T` panics later, we will
+        // leak the remaining elements but we won't be in an invalid state.
+        self.frame_count = new_len;
+
+        if std::mem::needs_drop::<T>() {
+            for c in 0..self.channel_count {
+                for i in new_len..prev_len {
+                    unsafe { self.channel_mut_ptr(c).add(i).drop_in_place() };
+                }
+            }
+        }
+    }
+
+    /// Resizes the audio buffer to the provided number of frames.
+    ///
+    /// New frames are filled with the provided value.
+    pub fn resize(&mut self, new_len: usize, val: T)
+    where
+        T: Copy,
+    {
+        if new_len <= self.frame_count {
+            // No need to drop anything because `T: Copy`.
+            self.frame_count = new_len;
+            return;
+        }
+
+        if new_len > self.cap {
+            unsafe { self.ensure_capacity_unchecked(new_len) };
+        }
+
+        for c in 0..self.channel_count {
+            for i in self.frame_count..new_len {
+                unsafe { self.channel_mut_ptr(c).add(i).write(val) };
+            }
+        }
+
+        self.frame_count = new_len;
     }
 
     /// Ensures that at least `additional` frames can be added to the audio buffer without

@@ -1,7 +1,7 @@
 use {
     serde::{Deserialize, Serialize, de::DeserializeOwned},
     serde_inline_default::serde_inline_default,
-    std::path::Path,
+    std::{path::Path, sync::OnceLock},
 };
 
 /// Yadaw settings.
@@ -81,4 +81,30 @@ fn serde_default<T: DeserializeOwned>() -> T {
     let fields = std::iter::empty::<((), ())>();
     let deserializer = serde::de::value::MapDeserializer::<_, serde::de::value::Error>::new(fields);
     T::deserialize(deserializer).unwrap()
+}
+
+/// The global settings instance.
+static SETTINGS: OnceLock<Settings> = OnceLock::new();
+
+/// Initializes the global settings.
+pub fn initialize() {
+    debug_assert!(SETTINGS.get().is_none());
+
+    let s = match Settings::load() {
+        Ok(s) => s,
+        Err(e) => {
+            log::error!("Failed to load the settings file: {e}");
+            Settings::default()
+        }
+    };
+
+    let _ = SETTINGS.set(s);
+}
+
+/// Returns a reference to the global settings instance.
+#[inline]
+pub fn get() -> &'static Settings {
+    SETTINGS
+        .get()
+        .expect("Attempted to use `SETTINGS` before it was initialized")
 }

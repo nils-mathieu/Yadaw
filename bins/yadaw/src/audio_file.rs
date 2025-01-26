@@ -1,7 +1,5 @@
 use {
-    crate::audio_thread::{
-        AudioBufferMut, AudioBufferOwned, AudioBufferRef, one_shot_player::OneShot,
-    },
+    crate::audio_thread::{AudioBufferMut, AudioBufferOwned, AudioBufferRef, OneShot},
     std::{path::PathBuf, sync::Arc},
     symphonia::core::{
         audio::Audio,
@@ -65,8 +63,6 @@ impl std::error::Error for AudioFileError {
 
 /// Contains information about a potentially loading audio file.
 pub struct AudioFile {
-    /// The path to the file (if applicable).
-    path: Option<PathBuf>,
     /// The samples of the audio file.
     data: AudioBufferOwned,
     /// The frame rate of the audio file.
@@ -76,14 +72,11 @@ pub struct AudioFile {
 impl AudioFile {
     /// Creates a new audio file with
     pub fn load(file: PathBuf) -> Result<Self, AudioFileError> {
-        Self::load_from_source(Box::new(std::fs::File::open(&file)?), Some(file))
+        Self::load_from_source(Box::new(std::fs::File::open(&file)?))
     }
 
     /// Loads an [`AudioFile`] from an arbitrary media source.
-    pub fn load_from_source(
-        source: Box<dyn MediaSource>,
-        path: Option<PathBuf>,
-    ) -> Result<Self, AudioFileError> {
+    pub fn load_from_source(source: Box<dyn MediaSource>) -> Result<Self, AudioFileError> {
         //
         // Probe the input media source for the file format that we're dealing with.
         //
@@ -153,11 +146,7 @@ impl AudioFile {
             }
         }
 
-        Ok(Self {
-            frame_rate,
-            path,
-            data,
-        })
+        Ok(Self { frame_rate, data })
     }
 
     /// Returns the data of the audio file.
@@ -172,16 +161,20 @@ impl AudioFile {
         self.frame_rate
     }
 
-    /// Plays the audio file at the specified volume.
-    pub fn play(self: &Arc<Self>, volume: f32) -> AudioFilePlayer {
+    /// Creates a new [`AudioFilePlayer`] instance that plays this audio file.
+    pub fn player(self: &Arc<Self>, volume: f32) -> AudioFilePlayer {
         AudioFilePlayer::new(self.clone(), volume)
+    }
+
+    /// Plays the audio file.
+    pub fn play(self: &Arc<Self>, volume: f32) {
+        crate::audio_thread::one_shot_controls().play(self.player(volume));
     }
 }
 
 impl std::fmt::Debug for AudioFile {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("AudioFile")
-            .field("path", &self.path)
             .field("frame_rate", &self.frame_rate)
             .finish_non_exhaustive()
     }

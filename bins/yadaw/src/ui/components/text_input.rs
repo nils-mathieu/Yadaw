@@ -1,6 +1,6 @@
 use kui::{
     IntoElement, elem,
-    elements::{Length, div, label, make_appearance, text_input},
+    elements::{Length, div, interactive::make_appearance, label, text_input},
     peniko::Color,
     winit::window::CursorIcon,
 };
@@ -83,15 +83,19 @@ where
                         }
                         if state.just_entered() {
                             cx.window.set_cursor(CursorIcon::Text);
+                            cx.window.request_redraw();
                         }
                         if state.just_left() {
                             cx.window.set_cursor(CursorIcon::Default);
+                            cx.window.request_redraw();
                         }
                         if state.just_focused() {
                             elem.style.border_brush = Some(Color::from_rgb8(0xff, 0xff, 0xff).into());
+                            cx.window.request_redraw();
                         }
                         if state.just_unfocused() {
                             elem.style.border_brush = Some(Color::from_rgb8(0x55, 0x55, 0x55).into());
+                            cx.window.request_redraw();
                         }
                     }
                 );

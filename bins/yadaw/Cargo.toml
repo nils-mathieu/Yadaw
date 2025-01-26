@@ -7,15 +7,17 @@ publish = false
 kui.workspace = true
 advice.workspace = true
 
-bitflags.workspace = true
 parking_lot.workspace = true
+rayon = "1"
 
 serde = { version = "1", features = ["derive"] }
 serde-inline-default = "0.2"
 toml = { version = "0.8", default-features = false, features = ["parse"] }
 
+bitflags.workspace = true
 thiserror = "2"
 log = "0.4"
+walkdir = "2"
 
 [dependencies.symphonia]
 git = "https://github.com/pdeljanov/Symphonia.git"

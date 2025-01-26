@@ -1,9 +1,12 @@
 #![feature(impl_trait_in_assoc_type)]
 
 use {
-    crate::audio_thread::AudioThreadControls,
+    self::audio_file::AudioFile,
     kui::winit::{dpi::PhysicalSize, window::WindowAttributes},
-    std::{path::Path, sync::Arc},
+    std::{
+        path::Path,
+        sync::{Arc, OnceLock},
+    },
 };
 
 mod audio_file;
@@ -11,10 +14,20 @@ mod audio_thread;
 mod settings;
 mod ui;
 
+/// The proxy to the main window of the application.
+///
+/// This is used to send messages to the UI thread.
+static MAIN_WINDOW: OnceLock<kui::WindowProxy> = OnceLock::new();
+
+/// Returns a proxy to the main window of the application.
+#[inline]
+fn main_window() -> &'static kui::WindowProxy {
+    MAIN_WINDOW.get_or_init(|| panic!("The main window has not been initialized"))
+}
+
 /// The glorious entry point of the Yadaw application.
 fn main() {
-    let settings = self::settings::Settings::load()
-        .unwrap_or_else(|err| panic!("Failed to load settings: {err}"));
+    self::settings::initialize();
 
     kui::run(|ctx| {
         self::ui::initialize_fonts(&ctx)
@@ -31,21 +44,21 @@ fn main() {
                 .with_visible(false),
         );
 
+        debug_assert!(MAIN_WINDOW.get().is_none());
+        let _ = MAIN_WINDOW.set(window.make_proxy());
+
         //
         // Setup the audio thread.
         //
 
-        let atc = Arc::new(self::audio_thread::AudioThreadControls::new(
-            window.make_proxy(),
-        ));
-        self::audio_thread::initialize_audio_thread(atc.clone());
+        self::audio_thread::initialize_audio_thread();
 
         //
         // Play the welcome sound.
         //
 
-        if settings.miscellaneous.play_startup_sound {
-            play_welcome_sound(&atc);
+        if self::settings::get().miscellaneous.play_startup_sound {
+            play_welcome_sound();
         }
 
         //
@@ -64,11 +77,11 @@ fn main() {
 }
 
 /// Plays the welcome sound.
-fn play_welcome_sound(atc: &AudioThreadControls) {
+fn play_welcome_sound() {
     const WELCOME_SOUND_PATH: &str = "assets/sfx/welcome.wav";
     let path = Path::new(WELCOME_SOUND_PATH);
 
-    let welcome_sound = match self::audio_file::AudioFile::load(path.into()) {
+    let welcome_sound = match AudioFile::load(path.into()) {
         Ok(s) => Arc::new(s),
         Err(e) => {
             let fullpath = match std::env::current_dir() {
@@ -84,5 +97,5 @@ fn play_welcome_sound(atc: &AudioThreadControls) {
         }
     };
 
-    atc.one_shot.play(welcome_sound.play(0.5));
+    welcome_sound.play(0.5);
 }
